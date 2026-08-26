@@ -1,0 +1,76 @@
+# 服务器配置
+server:
+  port: 9000
+
+# Spring 配置
+spring:
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/mall_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 30000
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+  # Jackson 日期格式化
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    timezone: Asia/Shanghai
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类扫描路径
+  type-aliases-package: com.mall.**.entity
+  global-config:
+    db-config:
+      # 逻辑删除字段名
+      logic-delete-field: deleted
+      # 逻辑已删除值
+      logic-delete-value: 1
+      # 逻辑未删除值
+      logic-not-delete-value: 0
+  configuration:
+    # 驼峰命名映射
+    map-underscore-to-camel-case: true
+    # 查询超时时间
+    default-statement-timeout: 30
+
+# Sa-Token 配置
+sa-token:
+  # Token 名称
+  token-name: token
+  # Token 有效期（秒），默认30天
+  timeout: 2592000
+  # 允许同一账号并发登录
+  is-concurrent: true
+  # 同一账号多次登录时是否共享一个 Token
+  is-share: false
+  # 是否尝试从 Cookie 读取 Token
+  is-read-cookie: false
+  # 是否尝试从请求头读取 Token
+  is-write-header: true
+
+# Knife4j 配置
+knife4j:
+  # 是否开启生产环境
+  production: false
+  basic:
+    # 是否开启基本认证
+    enable: false
+
+# 日志配置
+logging:
+  level:
+    com.mall: debug

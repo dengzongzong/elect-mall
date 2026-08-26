@@ -1,0 +1,77 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Backend: Java 17 + Maven
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build Backend with Maven
+      run: |
+        cd backend
+        mvn clean package -DskipTests
+        ls target/*.jar
+
+    # Admin Web: Node.js + Vue3
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: admin-web/package-lock.json
+
+    - name: Build Admin Web
+      run: |
+        cd admin-web
+        npm ci
+        npm run build
+        ls dist/
+
+    # Mall Web: Node.js + Vue3
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: mall-web/package-lock.json
+
+    - name: Build Mall Web
+      run: |
+        cd mall-web
+        npm ci
+        npm run build
+        ls dist/
+
+    # Upload artifacts
+    - name: Upload Backend JAR
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-jar
+        path: backend/target/*.jar
+
+    - name: Upload Admin Web
+      uses: actions/upload-artifact@v4
+      with:
+        name: admin-web-dist
+        path: admin-web/dist/
+
+    - name: Upload Mall Web
+      uses: actions/upload-artifact@v4
+      with:
+        name: mall-web-dist
+        path: mall-web/dist/
