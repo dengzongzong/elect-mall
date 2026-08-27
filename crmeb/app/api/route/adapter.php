@@ -71,5 +71,4 @@ Route::group('adapter', function () {
     Route::post('inquiry/submit', 'adapter.ContentController/submitInquiry');
     Route::get('inquiry/list', 'adapter.ContentController/inquiryList');
 
-})->middleware(\app\http\middleware\AllowOriginMiddleware::class)
-    ->middleware(\app\api\middleware\StationOpenMiddleware::class);
+})->middleware(\app\http\middleware\AllowOriginMiddleware::class);

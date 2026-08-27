@@ -18,10 +18,8 @@ export default defineConfig({
     port: 8080,
     proxy: {
       '/api': {
-        // CRMEB PHP后端地址（PHP内置服务器或Nginx代理）
         target: 'http://localhost:8000',
         changeOrigin: true,
-        // 重写路径：/api/xxx -> /api/adapter/xxx
         rewrite: (path) => path.replace(/^\/api\//, '/api/adapter/'),
       },
     },

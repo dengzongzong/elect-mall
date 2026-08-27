@@ -18,16 +18,14 @@ export default defineConfig({
     port: 8081,
     proxy: {
       '/api': {
-        // CRMEB PHP后端地址
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\//, '/api/adapter/')
+        rewrite: (path) => path.replace(/^\/api\//, '/api/adapter/'),
       },
       '/admin': {
-        // CRMEB管理后台地址
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/admin\//, '/admin/')
+        rewrite: (path) => path.replace(/^\/admin\//, '/admin/adapter/'),
       }
     }
   }

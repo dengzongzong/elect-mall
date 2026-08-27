@@ -18,7 +18,7 @@ export function getDashboard() {
  * 获取商品列表（管理端）
  */
 export function getAdminProducts(params) {
-  return request.get('/product/page', { params })
+  return request.post('/product/page', params)
 }
 
 /**

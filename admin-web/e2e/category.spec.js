@@ -46,6 +46,9 @@ test.describe('分类管理测试', () => {
     await page.click('.el-dialog .el-button--primary:has-text("保存")')
     await expect(page.locator('.el-message--success')).toBeVisible({ timeout: 10000 })
     
+    // 等待旧的成功消息消失
+    await page.locator('.el-message--success').first().waitFor({ state: 'hidden', timeout: 10000 })
+    
     // 等待表格加载
     await page.waitForSelector('.el-table__body tr', { timeout: 15000 })
     
@@ -77,6 +80,9 @@ test.describe('分类管理测试', () => {
     await page.fill('.el-dialog input[placeholder="请输入分类编码"]', 'TEST_CAT')
     await page.click('.el-dialog .el-button--primary:has-text("保存")')
     await expect(page.locator('.el-message--success')).toBeVisible({ timeout: 10000 })
+    
+    // 等待旧的成功消息消失
+    await page.locator('.el-message--success').first().waitFor({ state: 'hidden', timeout: 10000 })
     
     // 等待表格加载
     await page.waitForSelector('.el-table__body tr', { timeout: 15000 })

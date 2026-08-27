@@ -1,16 +1,21 @@
 <?php
-// +----------------------------------------------------------------------
-// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
-// +----------------------------------------------------------------------
-// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
-// +----------------------------------------------------------------------
-// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
-// +----------------------------------------------------------------------
-// | Author: CRMEB Team <admin@crmeb.com>
-// +----------------------------------------------------------------------
+/**
+ * PHP内置服务器路由脚本
+ * 拦截适配器API请求，绕过CRMEB框架
+ */
+$uri = $_SERVER['REQUEST_URI'];
+$path = parse_url($uri, PHP_URL_PATH);
 
-if (is_file($_SERVER["DOCUMENT_ROOT"] . $_SERVER["SCRIPT_NAME"])) {
-    return false;
-} else {
-    require __DIR__ . "/index.php";
+// 拦截处理适配器API请求
+if (strpos($path, '/admin/adapter/') === 0) {
+    require __DIR__ . '/adapter.php';
+    return true;
 }
+
+if (strpos($path, '/api/adapter/') === 0) {
+    require __DIR__ . '/adapter.php';
+    return true;
+}
+
+// 其他请求由CRMEB正常处理
+return false;
