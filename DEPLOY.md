@@ -429,21 +429,98 @@ cd /var/www/elect-mall && ./deploy.sh
 
 ## 八、GitHub Actions 自动部署
 
-在仓库的 `.github/workflows/deploy.yml` 中已配置自动构建。如需自动部署到服务器，添加 SSH 部署步骤：
+工作流文件 `.github/workflows/deploy.yml` 已配置完整的 CI/CD 流水线，每次推送代码到 `master` 分支时会自动触发：
 
-```yaml
-- name: Deploy to Server
-  uses: appleboy/ssh-action@v1.0.0
-  with:
-    host: ${{ secrets.SERVER_HOST }}
-    username: ${{ secrets.SERVER_USER }}
-    key: ${{ secrets.SERVER_SSH_KEY }}
-    script: |
-      cd /var/www/elect-mall
-      ./deploy.sh
+### 自动部署流程
+
+```
+git push → GitHub Actions
+                    ├── Job 1: Build
+                    │     ├── 安装 PHP 依赖 (composer install)
+                    │     ├── 构建 mall-web (npm run build)
+                    │     ├── 构建 admin-web (npm run build)
+                    │     └── 上传构建产物 (artifacts)
+                    │
+                    └── Job 2: Deploy (仅 push 到 master 触发)
+                          ├── 下载构建产物
+                          ├── SSH 连接到生产服务器
+                          ├── 备份当前版本
+                          ├── 解压部署新版本
+                          ├── 恢复 .env 配置
+                          ├── 设置目录权限
+                          └── 重载 PHP-FPM / Nginx
 ```
 
-在 GitHub 仓库设置中添加以下 Secrets：
-- `SERVER_HOST`：服务器 IP 或域名
-- `SERVER_USER`：SSH 用户名
-- `SERVER_SSH_KEY`：SSH 私钥
+### 配置 GitHub Secrets
+
+在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中添加以下 **4 个 Secrets**：
+
+| Secret 名称 | 说明 | 示例 |
+|-------------|------|------|
+| `SERVER_HOST` | 服务器 IP 或域名 | `123.45.67.89` 或 `shop.yourdomain.com` |
+| `SERVER_USER` | SSH 登录用户名 | `root` 或 `ubuntu` |
+| `SERVER_SSH_KEY` | SSH 私钥（**不要用公钥**） | 以 `-----BEGIN OPENSSL...` 开头 |
+| `SERVER_PATH` | 部署目录（可选，默认 `/var/www/elect-mall`） | `/var/www/elect-mall` |
+
+### 生成 SSH 密钥对
+
+如果还没有 SSH 密钥，在服务器上执行：
+
+```bash
+# 在服务器上生成密钥对
+ssh-keygen -t ed25519 -f ~/.ssh/github_actions -N ""
+
+# 将公钥添加到 authorized_keys
+cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+
+# 显示私钥内容（复制到 GitHub Secrets）
+cat ~/.ssh/github_actions
+```
+
+将输出的私钥内容（含 `-----BEGIN OPENSSH PRIVATE KEY-----`）粘贴到 GitHub Secrets 的 `SERVER_SSH_KEY` 中。
+
+### 测试自动部署
+
+配置完成后，正常推送代码即可触发：
+
+```bash
+git add .
+git commit -m "feat: xxx"
+git push origin master
+```
+
+然后到 GitHub 仓库的 `Actions` 标签页查看部署进度。
+
+### 部署状态查看
+
+| 状态 | 含义 |
+|------|------|
+| ✅ 绿色勾 | 构建+部署成功 |
+| ❌ 红色叉 | 部署失败，点击查看日志排查 |
+| 🟡 黄色圆圈 | 正在部署中 |
+
+### 常见问题
+
+**SSH 连接失败**
+```bash
+# 在服务器上检查 SSH 服务状态
+sudo systemctl status sshd
+
+# 检查防火墙是否放行 22 端口
+sudo ufw status
+```
+
+**权限不足**
+```bash
+# 确保 SSH 用户有 sudo 权限（无密码）
+echo "your_user ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/deploy
+
+# 或手动设置目录权限后去掉 sudo 命令
+```
+
+**部署目录不存在**
+```bash
+# 手动创建目录
+sudo mkdir -p /var/www/elect-mall
+sudo chown -R your_user:your_user /var/www/elect-mall
+```

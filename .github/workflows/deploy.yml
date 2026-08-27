@@ -3,17 +3,32 @@ name: Build and Deploy
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  # 支持手动触发
+  workflow_dispatch:
+
+# 安全性：同一个分支的旧构建被新构建取消
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ============================================================
+  # Job 1: 构建 (运行在 GitHub Actions)
+  # ============================================================
   build:
+    name: Build
     runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
 
     steps:
     - uses: actions/checkout@v4
 
-    # CRMEB PHP Backend
+    - name: Record commit SHA
+      id: commit
+      run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+    # ----- CRMEB PHP Backend -----
     - name: Set up PHP 7.4
       uses: shivammathur/setup-php@v2
       with:
@@ -29,12 +44,25 @@ jobs:
     - name: Prepare CRMEB Environment
       run: |
         cd crmeb
-        cp .env.example .env 2>/dev/null || true
+        # 创建必要的目录
+        mkdir -p runtime/cache runtime/log runtime/temp
+        mkdir -p public/uploads
         chmod -R 777 runtime
         chmod -R 777 crmeb
         chmod -R 777 public
 
-    # Mall Web Frontend (Vue 3)
+    - name: Create CRMEB build artifact
+      run: |
+        # 压缩后端（排除 vendor 因为是 composer install 生成的）
+        # 但 vendor 已经在上述步骤安装了，一起打包
+        cd crmeb
+        tar czf /tmp/crmeb-backend.tar.gz \
+          --exclude='.git' \
+          --exclude='runtime/cache/*' \
+          --exclude='runtime/log/*' \
+          .
+
+    # ----- Mall Web Frontend -----
     - name: Set up Node.js 20
       uses: actions/setup-node@v4
       with:
@@ -47,9 +75,9 @@ jobs:
         cd mall-web
         npm install
         npm run build
-        ls dist/
+        tar czf /tmp/mall-web-dist.tar.gz dist/
 
-    # Admin Web Frontend (Vue 3)
+    # ----- Admin Web Frontend -----
     - name: Set up Node.js 20
       uses: actions/setup-node@v4
       with:
@@ -62,23 +90,108 @@ jobs:
         cd admin-web
         npm install
         npm run build
-        ls dist/
+        tar czf /tmp/admin-web-dist.tar.gz dist/
 
-    # Upload artifacts
-    - name: Upload CRMEB Backend
+    # ----- Upload artifacts (供后续 Job 下载) -----
+    - name: Upload CRMEB Backend Artifact
       uses: actions/upload-artifact@v4
       with:
         name: crmeb-backend
-        path: crmeb/
+        path: /tmp/crmeb-backend.tar.gz
+        retention-days: 3
 
-    - name: Upload Mall Web
+    - name: Upload Mall Web Artifact
       uses: actions/upload-artifact@v4
       with:
         name: mall-web-dist
-        path: mall-web/dist/
+        path: /tmp/mall-web-dist.tar.gz
+        retention-days: 3
 
-    - name: Upload Admin Web
+    - name: Upload Admin Web Artifact
       uses: actions/upload-artifact@v4
       with:
         name: admin-web-dist
-        path: admin-web/dist/
+        path: /tmp/admin-web-dist.tar.gz
+        retention-days: 3
+
+  # ============================================================
+  # Job 2: 部署到生产服务器 (通过 SSH)
+  # ============================================================
+  deploy:
+    name: Deploy to Production
+    needs: build
+    # 仅在 push 到 master/main 时部署，PR 不部署
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || '22' }}
+        script_stop: true
+        script: |
+          set -e
+          echo "===== 开始自动部署: $(date) ====="
+
+          DEPLOY_DIR="${{ secrets.SERVER_PATH || '/var/www/elect-mall' }}"
+          BACKUP_DIR="${DEPLOY_DIR}_backup_$(date +%Y%m%d%H%M%S)"
+
+          # 1. 备份当前版本
+          if [ -d "$DEPLOY_DIR" ]; then
+            echo "备份当前版本到 $BACKUP_DIR"
+            cp -r "$DEPLOY_DIR" "$BACKUP_DIR"
+          fi
+
+          # 2. 确保目录存在
+          mkdir -p "$DEPLOY_DIR"
+
+          # 3. 解压后端
+          echo "部署 CRMEB 后端..."
+          tar xzf crmeb-backend/crmeb-backend.tar.gz -C "$DEPLOY_DIR/crmeb"
+
+          # 4. 解压前端
+          echo "部署 mall-web 前端..."
+          mkdir -p "$DEPLOY_DIR/mall-web"
+          tar xzf mall-web-dist/mall-web-dist.tar.gz -C "$DEPLOY_DIR/mall-web"
+
+          echo "部署 admin-web 前端..."
+          mkdir -p "$DEPLOY_DIR/admin-web"
+          tar xzf admin-web-dist/admin-web-dist.tar.gz -C "$DEPLOY_DIR/admin-web"
+
+          # 5. 设置权限
+          chmod -R 755 "$DEPLOY_DIR"
+          chmod -R 777 "$DEPLOY_DIR/crmeb/runtime" 2>/dev/null || true
+          chmod -R 777 "$DEPLOY_DIR/crmeb/public/uploads" 2>/dev/null || true
+
+          # 6. 恢复 .env 配置（从备份或手动创建）
+          if [ -f "$BACKUP_DIR/crmeb/.env" ]; then
+            cp "$BACKUP_DIR/crmeb/.env" "$DEPLOY_DIR/crmeb/.env"
+            echo "已恢复 .env 配置"
+          fi
+
+          # 7. 重载 PHP-FPM / Nginx（可选）
+          if command -v systemctl &> /dev/null; then
+            sudo systemctl reload php*-fpm 2>/dev/null || true
+            sudo systemctl reload nginx 2>/dev/null || true
+          fi
+
+          echo "===== 部署完成: $(date) ====="
+          echo "版本: ${{ needs.build.outputs.commit_sha }}"
+          echo "备份: $BACKUP_DIR"
+
+    - name: Notify deployment result
+      if: always()
+      run: |
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ 部署成功！"
+          echo "版本: ${{ needs.build.outputs.commit_sha }}"
+        else
+          echo "❌ 部署失败，请检查日志"
+        fi
