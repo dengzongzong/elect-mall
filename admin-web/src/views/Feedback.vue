@@ -8,7 +8,7 @@
       <el-tag type="danger" size="large" effect="dark">待处理: 5</el-tag>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" stripe style="width: 100%">
+      <el-table :data="tableData" stripe style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="username" label="用户" width="130" />
         <el-table-column prop="type" label="类型" width="100">
@@ -35,14 +35,27 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getAdminFeedbacks } from '../api/admin'
 
-const tableData = ref([
-  { id: 1, username: 'zhangsan', type: '投诉', title: '订单发货延迟，已超过承诺时间', status: '待处理', createTime: '2024-12-15 10:30:00' },
-  { id: 2, username: 'lisi', type: '反馈', title: '建议增加数据手册在线阅读功能', status: '已处理', createTime: '2024-12-14 14:20:00' },
-  { id: 3, username: 'wangwu', type: '投诉', title: '收到的商品与描述不符', status: '待处理', createTime: '2024-12-13 09:15:00' },
-  { id: 4, username: 'zhaoliu', type: '反馈', title: '搜索功能体验优化建议', status: '待处理', createTime: '2024-12-12 16:45:00' }
-])
+const loading = ref(false)
+const tableData = ref([])
+
+async function fetchFeedbacks() {
+  loading.value = true
+  try {
+    const res = await getAdminFeedbacks()
+    tableData.value = res.data || []
+  } catch (e) {
+    console.error('获取反馈列表失败:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchFeedbacks()
+})
 </script>
 
 <style scoped>

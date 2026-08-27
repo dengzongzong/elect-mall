@@ -5,7 +5,7 @@
         <h2>消息通知</h2>
         <p>查看系统消息和通知，包括订单通知、系统公告等。</p>
       </div>
-      <el-button type="danger">
+      <el-button type="danger" @click="dialogVisible = true">
         <el-icon><Plus /></el-icon>发送通知
       </el-button>
     </div>
@@ -42,7 +42,7 @@
           <template #header>
             <span>消息列表</span>
           </template>
-          <div class="message-list">
+          <div class="message-list" v-loading="loading">
             <div class="message-item" v-for="item in messages" :key="item.id">
               <div class="message-dot" :class="{ unread: !item.read }" />
               <div class="message-content">
@@ -57,18 +57,82 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 发送通知对话框 -->
+    <el-dialog v-model="dialogVisible" title="发送通知" width="500px">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="消息标题">
+          <el-input v-model="form.title" placeholder="请输入消息标题" />
+        </el-form-item>
+        <el-form-item label="消息类型">
+          <el-select v-model="form.type" placeholder="请选择消息类型" style="width: 100%">
+            <el-option label="订单通知" value="订单" />
+            <el-option label="系统公告" value="系统" />
+            <el-option label="询价回复" value="询价" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="消息内容">
+          <el-input v-model="form.content" type="textarea" :rows="4" placeholder="请输入消息内容" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="danger" :loading="sending" @click="handleSend">发送</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getAdminMessages, sendMessage } from '../api/admin'
 
-const messages = ref([
-  { id: 1, title: '新订单提醒：ORD-20241215001 已付款，请及时处理', time: '2024-12-15 10:35:00', type: '订单', read: false },
-  { id: 2, title: '系统维护通知：2024年12月20日 02:00-06:00 系统升级', time: '2024-12-14 16:00:00', type: '系统', read: false },
-  { id: 3, title: '询价回复：INQ-2024002 已收到供应商报价', time: '2024-12-14 15:30:00', type: '询价', read: true },
-  { id: 4, title: '新的投诉反馈，请及时处理', time: '2024-12-13 09:20:00', type: '系统', read: false }
-])
+const loading = ref(false)
+const sending = ref(false)
+const dialogVisible = ref(false)
+const messages = ref([])
+
+const form = ref({
+  title: '',
+  type: '',
+  content: ''
+})
+
+async function fetchMessages() {
+  loading.value = true
+  try {
+    const res = await getAdminMessages()
+    messages.value = res.data || []
+  } catch (e) {
+    ElMessage.error('获取消息列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleSend() {
+  if (!form.value.title || !form.value.type || !form.value.content) {
+    ElMessage.warning('请填写完整信息')
+    return
+  }
+  sending.value = true
+  try {
+    await sendMessage(form.value)
+    ElMessage.success('发送成功')
+    dialogVisible.value = false
+    form.value = { title: '', type: '', content: '' }
+    await fetchMessages()
+  } catch (e) {
+    ElMessage.error('发送失败')
+  } finally {
+    sending.value = false
+  }
+}
+
+onMounted(() => {
+  fetchMessages()
+})
 </script>
 
 <style scoped>

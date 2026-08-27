@@ -190,3 +190,69 @@ export function uploadFile(file) {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
+
+/**
+ * 获取 BOM 列表
+ */
+export function getAdminBomList(params) {
+  return request.get('/admin/bom/list', { params })
+}
+
+/**
+ * 删除 BOM
+ */
+export function deleteBom(id) {
+  return request.delete('/admin/bom/delete', { data: { id } })
+}
+
+/**
+ * 获取合作品牌列表
+ */
+export function getAdminCooperates() {
+  return request.get('/admin/cooperate/list')
+}
+
+/**
+ * 保存合作品牌
+ */
+export function saveCooperate(data) {
+  if (data.id) {
+    return request.put('/admin/cooperate/update', data)
+  }
+  return request.post('/admin/cooperate/add', data)
+}
+
+/**
+ * 删除合作品牌
+ */
+export function deleteCooperate(id) {
+  return request.delete('/admin/cooperate/delete', { data: { id } })
+}
+
+/**
+ * 获取数据手册列表
+ */
+export function getAdminDatasheets(params) {
+  return request.get('/admin/datasheet/list', { params })
+}
+
+/**
+ * 删除数据手册
+ */
+export function deleteDatasheet(id) {
+  return request.delete('/admin/datasheet/delete', { data: { id } })
+}
+
+/**
+ * 获取消息通知列表
+ */
+export function getAdminMessages(params) {
+  return request.get('/admin/message/list', { params })
+}
+
+/**
+ * 发送通知
+ */
+export function sendMessage(data) {
+  return request.post('/admin/message/send', data)
+}

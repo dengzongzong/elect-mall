@@ -34,7 +34,7 @@
               <el-input v-model="smsConfig.codeTemplate" placeholder="请输入短信模板ID" />
             </el-form-item>
             <el-form-item>
-              <el-button type="danger" @click="handleSave">保存配置</el-button>
+              <el-button type="danger" :loading="loading" @click="handleSave">保存配置</el-button>
               <el-button @click="handleTest">发送测试</el-button>
             </el-form-item>
           </el-form>
@@ -86,8 +86,11 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { getSettings, saveSetting } from '../api/admin'
+
+const loading = ref(false)
 
 const smsConfig = reactive({
   provider: 'aliyun',
@@ -104,13 +107,47 @@ const paymentConfig = reactive({
   bankTransfer: false
 })
 
-function handleSave() {
-  ElMessage.success('配置保存成功')
+async function fetchSettings() {
+  loading.value = true
+  try {
+    const res = await getSettings()
+    const data = res.data || res
+    if (data.sms) {
+      Object.assign(smsConfig, data.sms)
+    }
+    if (data.payment) {
+      Object.assign(paymentConfig, data.payment)
+    }
+  } catch (e) {
+    // 接口不可用时保留默认值
+    console.warn('获取系统配置失败，使用默认配置', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleSave() {
+  loading.value = true
+  try {
+    await saveSetting({
+      sms: { ...smsConfig },
+      payment: { ...paymentConfig }
+    })
+    ElMessage.success('配置保存成功')
+  } catch (e) {
+    ElMessage.error('配置保存失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 function handleTest() {
   ElMessage.info('测试短信已发送')
 }
+
+onMounted(() => {
+  fetchSettings()
+})
 </script>
 
 <style scoped>

@@ -1,5 +1,5 @@
 <template>
-  <div class="finance">
+  <div class="finance" v-loading="loading">
     <div class="page-header">
       <div class="page-title">
         <h2>财务管理</h2>
@@ -14,7 +14,7 @@
         <el-card shadow="hover">
           <div class="finance-stat">
             <div class="finance-stat-label">本月收入</div>
-            <div class="finance-stat-value" style="color: #52c41a;">¥ 1,256,800</div>
+            <div class="finance-stat-value" style="color: #52c41a;">{{ stats.monthlyIncome }}</div>
           </div>
         </el-card>
       </el-col>
@@ -22,7 +22,7 @@
         <el-card shadow="hover">
           <div class="finance-stat">
             <div class="finance-stat-label">本月支出</div>
-            <div class="finance-stat-value" style="color: #E60012;">¥ 856,200</div>
+            <div class="finance-stat-value" style="color: #E60012;">{{ stats.monthlyExpense }}</div>
           </div>
         </el-card>
       </el-col>
@@ -30,7 +30,7 @@
         <el-card shadow="hover">
           <div class="finance-stat">
             <div class="finance-stat-label">本月利润</div>
-            <div class="finance-stat-value" style="color: #1890ff;">¥ 400,600</div>
+            <div class="finance-stat-value" style="color: #1890ff;">{{ stats.monthlyProfit }}</div>
           </div>
         </el-card>
       </el-col>
@@ -38,7 +38,7 @@
         <el-card shadow="hover">
           <div class="finance-stat">
             <div class="finance-stat-label">待结算金额</div>
-            <div class="finance-stat-value" style="color: #faad14;">¥ 325,000</div>
+            <div class="finance-stat-value" style="color: #faad14;">{{ stats.pendingSettlement }}</div>
           </div>
         </el-card>
       </el-col>
@@ -69,14 +69,34 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getFinanceData } from '../api/admin'
 
-const tableData = ref([
-  { id: 'FL-20241215001', type: '收入', amount: 12500.00, description: '订单 ORD-20241215001 付款', createTime: '2024-12-15 10:35:00' },
-  { id: 'FL-20241215002', type: '支出', amount: 5800.00, description: '供应商结算 - 华强电子', createTime: '2024-12-15 11:20:00' },
-  { id: 'FL-20241214003', type: '收入', amount: 3680.50, description: '订单 ORD-20241214003 付款', createTime: '2024-12-14 14:35:00' },
-  { id: 'FL-20241214004', type: '支出', amount: 2200.00, description: '物流费用结算', createTime: '2024-12-14 16:00:00' }
-])
+const loading = ref(false)
+const stats = ref({
+  monthlyIncome: '¥ 0',
+  monthlyExpense: '¥ 0',
+  monthlyProfit: '¥ 0',
+  pendingSettlement: '¥ 0'
+})
+const tableData = ref([])
+
+async function fetchFinanceData() {
+  loading.value = true
+  try {
+    const res = await getFinanceData()
+    stats.value = res.data.stats
+    tableData.value = res.data.transactions
+  } catch (e) {
+    console.error('获取财务数据失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchFinanceData()
+})
 </script>
 
 <style scoped>

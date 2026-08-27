@@ -60,7 +60,7 @@ public class StpUserUtil {
      *
      * @return token信息
      */
-    public static cn.dev33.satoken.session.SaTokenInfo getTokenInfo() {
+    public static cn.dev33.satoken.stp.SaTokenInfo getTokenInfo() {
         return StpUtil.getTokenInfo();
     }
 }

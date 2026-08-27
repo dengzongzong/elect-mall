@@ -26,19 +26,39 @@
           </div>
         </div>
 
-        <!-- Banner 轮播 -->
-        <div class="banner-area">
-          <el-carousel :interval="4000" height="400px" indicator-position="inside">
-            <el-carousel-item v-for="(banner, idx) in banners" :key="idx">
-              <div class="banner-slide" :style="{ background: banner.bg }">
-                <div class="banner-content">
-                  <h2>{{ banner.title }}</h2>
-                  <p>{{ banner.subtitle }}</p>
-                  <el-button type="danger" size="large" round>立即查看</el-button>
+        <!-- Banner 轮播 + 固定广告 -->
+        <div class="banner-wrapper">
+          <!-- 左侧轮播 -->
+          <div class="banner-carousel">
+            <el-carousel :interval="4000" height="400px" indicator-position="inside">
+              <el-carousel-item v-for="(banner, idx) in banners" :key="idx">
+                <div class="banner-slide" :style="{ background: banner.bg }">
+                  <div class="banner-content">
+                    <h2>{{ banner.title }}</h2>
+                    <p>{{ banner.subtitle }}</p>
+                    <el-button type="danger" size="large" round>立即查看</el-button>
+                  </div>
                 </div>
+              </el-carousel-item>
+            </el-carousel>
+          </div>
+          <!-- 右侧固定广告 -->
+          <div class="banner-ads">
+            <a
+              v-for="(ad, idx) in sideAds"
+              :key="idx"
+              :href="ad.link"
+              class="ad-item"
+              :style="{ background: ad.bg }"
+              target="_blank"
+            >
+              <div class="ad-content">
+                <span class="ad-tag" :style="{ background: ad.tagBg }">{{ ad.tag }}</span>
+                <h4 class="ad-title">{{ ad.title }}</h4>
+                <p class="ad-desc">{{ ad.desc }}</p>
               </div>
-            </el-carousel-item>
-          </el-carousel>
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -164,6 +184,15 @@ const banners = [
   { title: '电子元器件一站式采购', subtitle: '海量型号现货供应，正品保障', bg: 'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)' },
   { title: '新品上线 - 32位MCU', subtitle: 'STM32/GD32/AT32 系列特惠促销', bg: 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)' },
   { title: 'BOM配单服务', subtitle: '上传BOM清单，快速报价，一站配齐', bg: 'linear-gradient(135deg, #389e0d 0%, #73d13d 100%)' },
+  { title: '品牌专区特惠', subtitle: '三星、村田、TDK、国巨等一线品牌直供', bg: 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)' },
+  { title: '新品首发 - 车规级器件', subtitle: 'AEC-Q100/200认证车规级元器件现货特卖', bg: 'linear-gradient(135deg, #c41d7f 0%, #ff85c0 100%)' },
+]
+
+const sideAds = [
+  { title: 'BOM 配单报价', desc: '上传BOM清单，2小时快速报价', tag: '热门服务', tagBg: '#E60012', link: '#', bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' },
+  { title: '免费样品申请', desc: '工程师专享，免费样品送到家', tag: '限时活动', tagBg: '#fa8c16', link: '#', bg: 'linear-gradient(135deg, #2d1b00 0%, #4a2800 100%)' },
+  { title: '技术资料下载', desc: '数据手册、参考设计、应用笔记', tag: '资源中心', tagBg: '#1677ff', link: '#', bg: 'linear-gradient(135deg, #001529 0%, #003a70 100%)' },
+  { title: '在线技术支持', desc: '资深工程师在线答疑，快速响应', tag: '技术支持', tagBg: '#52c41a', link: '#', bg: 'linear-gradient(135deg, #092b00 0%, #1a5200 100%)' },
 ]
 
 const features = [
@@ -351,11 +380,25 @@ function handleAddToCart(product) {
   color: var(--theme-color);
 }
 
-/* Banner */
-.banner-area {
+/* Banner 容器 */
+.banner-wrapper {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  height: 400px;
+}
+
+/* 左侧轮播 */
+.banner-carousel {
   flex: 1;
   border-radius: 4px;
   overflow: hidden;
+  min-width: 0;
+}
+
+.banner-carousel .el-carousel,
+.banner-carousel .el-carousel__container {
+  height: 100% !important;
 }
 
 .banner-slide {
@@ -382,6 +425,62 @@ function handleAddToCart(product) {
   font-size: 18px;
   margin-bottom: 24px;
   opacity: 0.9;
+}
+
+/* 右侧固定广告 */
+.banner-ads {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ad-item {
+  flex: 1;
+  border-radius: 4px;
+  display: block;
+  text-decoration: none;
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.ad-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.ad-content {
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: #fff;
+}
+
+.ad-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  margin-bottom: 6px;
+  width: fit-content;
+  font-weight: 500;
+}
+
+.ad-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.ad-desc {
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.4;
 }
 
 /* 特色优势 */
@@ -723,5 +822,12 @@ function handleAddToCart(product) {
 
 .news-item:hover .news-arrow {
   color: var(--theme-color);
+}
+
+/* 响应式：小屏幕隐藏右侧广告 */
+@media (max-width: 1024px) {
+  .banner-ads {
+    display: none;
+  }
 }
 </style>

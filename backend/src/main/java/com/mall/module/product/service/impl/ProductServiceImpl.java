@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.time.LocalDateTime;
@@ -80,7 +80,8 @@ public class ProductServiceImpl implements ProductService {
         // 排序
         if (query.getOrderBy() != null && !query.getOrderBy().isEmpty()) {
             boolean isAsc = "asc".equalsIgnoreCase(query.getOrderDir());
-            wrapper.orderBy(true, isAsc, query.getOrderBy());
+            // 动态排序，使用 wrapper.last 追加 ORDER BY 子句
+            wrapper.last("ORDER BY " + query.getOrderBy() + " " + (isAsc ? "ASC" : "DESC"));
         } else {
             // 默认按创建时间倒序
             wrapper.orderByDesc(Product::getCreatedAt);

@@ -10,7 +10,7 @@
       </el-button>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="name" label="文档名称" min-width="250" />
         <el-table-column prop="product" label="适用产品" width="200" />
@@ -18,9 +18,9 @@
         <el-table-column prop="uploadTime" label="上传时间" width="180" />
         <el-table-column prop="downloads" label="下载次数" width="100" />
         <el-table-column label="操作" width="150" fixed="right">
-          <template #default>
+          <template #default="{ row }">
             <el-button type="primary" link size="small">下载</el-button>
-            <el-button type="danger" link size="small">删除</el-button>
+            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -29,13 +29,43 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getAdminDatasheets, deleteDatasheet } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-const tableData = ref([
-  { id: 1, name: 'STM32F103C8T6_Datasheet_EN.pdf', product: 'STM32F103C8T6', fileSize: '2.5 MB', uploadTime: '2024-12-01 10:00:00', downloads: 350 },
-  { id: 2, name: 'AMS1117_Datasheet_CN.pdf', product: 'AMS1117-3.3', fileSize: '1.2 MB', uploadTime: '2024-12-05 14:30:00', downloads: 180 },
-  { id: 3, name: 'ESP32_WROOM_32_Technical_Reference.pdf', product: 'ESP32-WROOM-32', fileSize: '5.8 MB', uploadTime: '2024-12-10 09:15:00', downloads: 220 }
-])
+const loading = ref(false)
+const tableData = ref([])
+
+async function fetchDatasheets() {
+  loading.value = true
+  try {
+    const res = await getAdminDatasheets()
+    tableData.value = res.data || []
+  } catch (e) {
+    tableData.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleDelete(row) {
+  try {
+    await ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    await deleteDatasheet(row.id)
+    ElMessage.success('删除成功')
+    await fetchDatasheets()
+  } catch (e) {
+    // 取消或删除失败，不做处理
+  }
+}
+
+onMounted(() => {
+  fetchDatasheets()
+})
 </script>
 
 <style scoped>
