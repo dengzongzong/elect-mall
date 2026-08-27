@@ -9,7 +9,13 @@
           <el-breadcrumb-item>STM32F103C8T6</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
-      <div class="detail-layout">
+      <div v-if="loading" class="loading-area">
+        <el-skeleton :rows="5" animated />
+      </div>
+      <div v-else-if="!product" class="empty-area">
+        <el-empty description="商品不存在" />
+      </div>
+      <div v-else class="detail-layout">
         <!-- 产品图片 -->
         <div class="product-gallery">
           <div class="main-image">
@@ -24,34 +30,34 @@
         </div>
         <!-- 产品信息 -->
         <div class="product-info">
-          <h2 class="product-title">STM32F103C8T6</h2>
-          <p class="product-desc">ARM Cortex-M3 32位MCU，72MHz主频，64KB Flash，20KB SRAM，LQFP48封装</p>
+          <h2 class="product-title">{{ product.name || product.partNo }}</h2>
+          <p class="product-desc">{{ product.description || '' }}</p>
           <div class="price-section">
             <div class="price-row">
               <span class="label">零售价：</span>
-              <span class="price">￥8.50</span>
+              <span class="price">￥{{ product.price }}</span>
             </div>
-            <div class="price-row">
+            <div class="price-row" v-if="product.bulkPrice">
               <span class="label">批量价：</span>
-              <span class="bulk-price">￥6.80 (≥100pcs)</span>
+              <span class="bulk-price">￥{{ product.bulkPrice }}</span>
             </div>
           </div>
           <div class="info-section">
             <div class="info-row">
               <span class="label">品牌：</span>
-              <span class="value">ST (意法半导体)</span>
+              <span class="value">{{ product.brandName || '通用' }}</span>
             </div>
-            <div class="info-row">
+            <div class="info-row" v-if="product.packageType">
               <span class="label">封装：</span>
-              <span class="value">LQFP-48</span>
+              <span class="value">{{ product.packageType }}</span>
             </div>
             <div class="info-row">
               <span class="label">库存：</span>
-              <span class="value stock">现货 9999+ PCS</span>
+              <span class="value stock">现货 {{ product.stock || 0 }}+ PCS</span>
             </div>
             <div class="info-row">
               <span class="label">起订量：</span>
-              <span class="value">1 PCS</span>
+              <span class="value">{{ product.minOrder || 1 }} PCS</span>
             </div>
           </div>
           <div class="action-section">
@@ -107,27 +113,58 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
+import { getProductDetail } from '../api/product'
+import { addToCart } from '../api/cart'
 
+const route = useRoute()
 const cartStore = useCartStore()
 const quantity = ref(1)
 const activeTab = ref('desc')
+const product = ref(null)
+const loading = ref(true)
 
-function handleAddCart() {
+async function fetchProduct() {
+  try {
+    const res = await getProductDetail(route.params.id)
+    if (res.data) {
+      product.value = res.data
+    } else if (res.success !== false) {
+      product.value = res
+    }
+  } catch (e) {
+    ElMessage.error('获取商品详情失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleAddCart() {
+  if (!product.value) return
+  try {
+    await addToCart(product.value.id, quantity.value)
+  } catch (e) {
+    // fallback to local cart
+  }
   cartStore.addItem({
-    id: 1001,
-    name: 'STM32F103C8T6',
-    price: 8.50,
+    id: product.value.id,
+    name: product.value.name,
+    price: product.value.price,
     quantity: quantity.value,
-    stock: 9999,
+    stock: product.value.stock || 0,
     image: '',
   })
   ElMessage.success('已加入购物车')
 }
+
+onMounted(() => {
+  fetchProduct()
+})
 </script>
 
 <style scoped>

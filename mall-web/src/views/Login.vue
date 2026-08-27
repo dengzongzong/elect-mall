@@ -78,6 +78,7 @@ import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
+import { sendCode, phoneLogin, wechatLogin } from '../api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -126,42 +127,54 @@ function getRandomStyle() {
   }
 }
 
-function handleGetCode() {
+async function handleGetCode() {
   if (!/^1[3-9]\d{9}$/.test(form.phone)) {
     ElMessage.warning('请输入正确的手机号')
     return
   }
   codeSending.value = true
-  // 模拟发送验证码
-  setTimeout(() => {
+  try {
+    const res = await sendCode(form.phone)
+    if (res.success !== false) {
+      countdown.value = 60
+      timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+        }
+      }, 1000)
+      ElMessage.success('验证码已发送')
+    } else {
+      ElMessage.error(res.message || '验证码发送失败')
+    }
+  } catch (e) {
+    // 错误已在拦截器中处理
+  } finally {
     codeSending.value = false
-    countdown.value = 60
-    timer = setInterval(() => {
-      countdown.value--
-      if (countdown.value <= 0) {
-        clearInterval(timer)
-      }
-    }, 1000)
-    ElMessage.success('验证码已发送')
-  }, 1000)
+  }
 }
 
-function handleLogin() {
-  formRef.value.validate((valid) => {
-    if (valid) {
-      loading.value = true
-      // 模拟登录
-      setTimeout(() => {
-        loading.value = false
-        userStore.setToken('mock_token_' + Date.now())
-        userStore.setUserInfo({
+async function handleLogin() {
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    loading.value = true
+    try {
+      const res = await phoneLogin(form.phone, form.code)
+      if (res.success !== false) {
+        userStore.setToken(res.token)
+        userStore.setUserInfo(res.user || {
           nickname: '用户' + form.phone.slice(-4),
           phone: form.phone,
-          avatar: '',
         })
         ElMessage.success('登录成功')
         router.push('/')
-      }, 1500)
+      } else {
+        ElMessage.error(res.message || '登录失败')
+      }
+    } catch (e) {
+      // 错误已在拦截器中处理
+    } finally {
+      loading.value = false
     }
   })
 }

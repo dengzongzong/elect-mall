@@ -15,16 +15,19 @@
           <div class="checkout-section">
             <h4>收货地址</h4>
             <div class="address-list">
-              <div class="address-card" :class="{ selected: selectedAddress === 1 }" @click="selectedAddress = 1">
+              <div class="address-card" v-for="addr in addressList" :key="addr.id" :class="{ selected: selectedAddress === addr.id }" @click="selectedAddress = addr.id">
                 <div class="address-info">
-                  <span class="name">张三</span>
-                  <span class="phone">138****8888</span>
-                  <span class="tag">默认</span>
+                  <span class="name">{{ addr.name }}</span>
+                  <span class="phone">{{ addr.phone }}</span>
+                  <span class="tag" v-if="addr.isDefault">默认</span>
                 </div>
-                <p class="address-detail">广东省深圳市南山区科技园南路100号</p>
+                <p class="address-detail">{{ addr.address }}</p>
               </div>
-              <el-button class="add-address-btn" @click="showAddressDialog = true">
-                <el-icon><Plus /></el-icon> 新增地址
+              <div v-if="addressList.length === 0" class="empty-address">
+                <p>请先在用户中心添加收货地址</p>
+              </div>
+              <el-button class="add-address-btn" @click="$router.push('/user/address')">
+                <el-icon><Plus /></el-icon> 管理地址
               </el-button>
             </div>
           </div>
@@ -71,7 +74,7 @@
               <span>应付总额</span>
               <span class="total-price">￥{{ cartStore.total.toFixed(2) }}</span>
             </div>
-            <el-button type="danger" size="large" class="submit-btn" @click="handleSubmit">提交订单</el-button>
+            <el-button type="danger" size="large" class="submit-btn" :loading="submitting" @click="handleSubmit">提交订单</el-button>
           </div>
         </div>
       </div>
@@ -81,29 +84,71 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
+import { useUserStore } from '../stores/user'
+import { createOrder } from '../api/order'
+import { getAddressList } from '../api/user'
 
 const router = useRouter()
 const cartStore = useCartStore()
-const selectedAddress = ref(1)
+const userStore = useUserStore()
+const selectedAddress = ref(null)
 const remark = ref('')
 const showAddressDialog = ref(false)
+const addressList = ref([])
+const submitting = ref(false)
 
-function handleSubmit() {
+async function fetchAddresses() {
+  try {
+    const res = await getAddressList()
+    if (res.data) {
+      addressList.value = res.data
+      if (addressList.value.length > 0) {
+        selectedAddress.value = addressList.value[0].id
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function handleSubmit() {
   if (cartStore.items.length === 0) {
     ElMessage.warning('购物车是空的')
     return
   }
-  // 模拟提交订单
-  const orderNo = 'ORD' + Date.now()
-  ElMessage.success('订单提交成功')
-  router.push(`/pay/${orderNo}`)
+  if (!selectedAddress.value) {
+    ElMessage.warning('请选择收货地址')
+    return
+  }
+  submitting.value = true
+  try {
+    const address = addressList.value.find(a => a.id === selectedAddress.value)
+    const res = await createOrder({
+      name: address?.name || '',
+      phone: address?.phone || '',
+      address: address?.address || '',
+      remark: remark.value,
+    })
+    const orderNo = res.data?.orderNo || res.orderNo || ('ORD' + Date.now())
+    cartStore.clearCart()
+    ElMessage.success('订单提交成功')
+    router.push(`/pay/${orderNo}`)
+  } catch (e) {
+    ElMessage.error('订单提交失败，请重试')
+  } finally {
+    submitting.value = false
+  }
 }
+
+onMounted(() => {
+  fetchAddresses()
+})
 </script>
 
 <style scoped>

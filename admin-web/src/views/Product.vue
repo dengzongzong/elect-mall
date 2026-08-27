@@ -34,8 +34,8 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary">搜索</el-button>
-          <el-button>重置</el-button>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -59,10 +59,10 @@
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
-          <template #default>
+          <template #default="{ row }">
             <el-button type="primary" link size="small">编辑</el-button>
             <el-button type="danger" link size="small">下架</el-button>
-            <el-button type="warning" link size="small">删除</el-button>
+            <el-button type="warning" link size="small" @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -79,8 +79,9 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminProducts, deleteProduct } from '../api/admin'
 
 const searchForm = reactive({
   name: '',
@@ -90,19 +91,72 @@ const searchForm = reactive({
 
 const currentPage = ref(1)
 const pageSize = ref(20)
-const total = ref(100)
+const total = ref(0)
+const loading = ref(false)
 
-const tableData = ref([
-  { id: 'EC-001', name: 'STM32F103C8T6 微控制器', category: '集成电路', brand: 'ST', price: 12.50, stock: 5000, status: '上架' },
-  { id: 'EC-002', name: 'AMS1117-3.3 稳压器', category: '集成电路', brand: 'AMS', price: 0.85, stock: 12000, status: '上架' },
-  { id: 'EC-003', name: 'RC0805 10KΩ 贴片电阻', category: '被动元件', brand: 'Yageo', price: 0.05, stock: 50000, status: '上架' },
-  { id: 'EC-004', name: 'XH2.54-2P 接线端子', category: '连接器', brand: 'JST', price: 0.35, stock: 8000, status: '下架' },
-  { id: 'EC-005', name: 'DHT22 温湿度传感器', category: '传感器', brand: 'Aosong', price: 8.90, stock: 2000, status: '上架' }
-])
+const tableData = ref([])
+
+async function fetchProducts() {
+  loading.value = true
+  try {
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value,
+    }
+    if (searchForm.name) params.keyword = searchForm.name
+    if (searchForm.category) params.categoryId = searchForm.category
+    if (searchForm.status) params.status = searchForm.status === 'on' ? 1 : 0
+
+    const res = await getAdminProducts(params)
+    if (res.data) {
+      if (res.data.records) {
+        tableData.value = res.data.records
+        total.value = res.data.total || 0
+      } else {
+        tableData.value = res.data
+      }
+    }
+  } catch (e) {
+    // ignore
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSearch() {
+  currentPage.value = 1
+  fetchProducts()
+}
+
+function handleReset() {
+  searchForm.name = ''
+  searchForm.category = ''
+  searchForm.status = ''
+  currentPage.value = 1
+  fetchProducts()
+}
 
 function handleImport() {
   ElMessage.info('导入商品功能开发中')
 }
+
+function handleDelete(id) {
+  ElMessageBox.confirm('确认删除该商品？', '提示', {
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await deleteProduct(id)
+      ElMessage.success('删除成功')
+      fetchProducts()
+    } catch (e) {
+      ElMessage.error('删除失败')
+    }
+  }).catch(() => {})
+}
+
+onMounted(() => {
+  fetchProducts()
+})
 </script>
 
 <style scoped>

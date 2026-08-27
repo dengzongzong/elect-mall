@@ -84,39 +84,47 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
+import { getOrderList } from '../api/order'
 
-const activeTab = ref('unpaid')
+const activeTab = ref('all')
+const orders = ref([])
+const loading = ref(false)
 
-const orders = ref([
-  {
-    id: 1001,
-    orderNo: 'ORD20240315001',
-    statusText: '待付款',
-    statusClass: 'unpaid',
-    totalQty: 3,
-    totalAmount: '56.00',
-    items: [
-      { id: 1, name: 'STM32F103C8T6', qty: 2, price: '17.00' },
-      { id: 2, name: 'AMS1117-3.3', qty: 10, price: '3.50' },
-      { id: 3, name: 'DS18B20', qty: 5, price: '14.00' },
-    ],
-  },
-  {
-    id: 1002,
-    orderNo: 'ORD20240314002',
-    statusText: '待审核',
-    statusClass: 'pending',
-    totalQty: 5,
-    totalAmount: '120.00',
-    items: [
-      { id: 4, name: 'ESP32-WROOM-32', qty: 5, price: '90.00' },
-      { id: 5, name: 'BMP280', qty: 5, price: '22.50' },
-    ],
-  },
-])
+const statusMap = {
+  '待审核': { text: '待审核', cls: 'pending' },
+  '待付款': { text: '待付款', cls: 'unpaid' },
+  '待发货': { text: '待发货', cls: 'shipping' },
+  '待收货': { text: '待收货', cls: 'received' },
+  '已完成': { text: '已完成', cls: 'completed' },
+  '已取消': { text: '已取消', cls: 'cancelled' },
+}
+
+async function fetchOrders() {
+  loading.value = true
+  try {
+    const res = await getOrderList()
+    if (res.data) {
+      orders.value = res.data.map(order => ({
+        ...order,
+        statusText: statusMap[order.status]?.text || order.status,
+        statusClass: statusMap[order.status]?.cls || 'pending',
+        items: order.items || [],
+        totalQty: (order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0),
+      }))
+    }
+  } catch (e) {
+    // ignore
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchOrders()
+})
 </script>
 
 <style scoped>

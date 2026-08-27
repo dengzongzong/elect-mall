@@ -12,7 +12,7 @@
               <el-icon :size="28"><ShoppingCart /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">1,286</div>
+              <div class="stat-value">{{ stats.todayOrders }}</div>
               <div class="stat-label">今日订单</div>
             </div>
           </div>
@@ -25,7 +25,7 @@
               <el-icon :size="28"><Coin /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">¥ 3,568,200</div>
+              <div class="stat-value">¥ {{ stats.todaySales }}</div>
               <div class="stat-label">今日销售额</div>
             </div>
           </div>
@@ -38,7 +38,7 @@
               <el-icon :size="28"><User /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">342</div>
+              <div class="stat-value">{{ stats.newUsers }}</div>
               <div class="stat-label">新注册用户</div>
             </div>
           </div>
@@ -51,7 +51,7 @@
               <el-icon :size="28"><Goods /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">15,680</div>
+              <div class="stat-value">{{ stats.totalProducts }}</div>
               <div class="stat-label">商品总数</div>
             </div>
           </div>
@@ -99,11 +99,33 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAppStore } from '../stores/app'
+import { getDashboard } from '../api/admin'
 
 const appStore = useAppStore()
-const userInfo = computed(() => appStore.userInfo)
+const userInfo = ref(appStore.userInfo || {})
+const stats = ref({
+  todayOrders: '--',
+  todaySales: '--',
+  newUsers: '--',
+  totalProducts: '--',
+})
+
+async function fetchDashboard() {
+  try {
+    const res = await getDashboard()
+    if (res.data) {
+      stats.value = res.data
+    }
+  } catch (e) {
+    // ignore, use default values
+  }
+}
+
+onMounted(() => {
+  fetchDashboard()
+})
 </script>
 
 <style scoped>

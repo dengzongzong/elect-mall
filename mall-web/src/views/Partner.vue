@@ -86,8 +86,11 @@
               <el-button type="danger" @click="handleSubmit" :loading="submitting">提交申请</el-button>
               <el-button @click="resetForm">重置</el-button>
             </el-form-item>
-          </el-form>
-        </div>
+            <el-form-item v-if="submitResult">
+              <el-alert :title="submitResult" type="success" show-icon :closable="true" @close="submitResult = ''" />
+            </el-form-item>
+            </el-form>
+          </div>
       </div>
     </div>
 
@@ -100,9 +103,11 @@ import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
+import { submitPartnerApply } from '../api/content'
 
 const formSection = ref(null)
 const submitting = ref(false)
+const submitResult = ref('')
 
 const advantages = [
   { icon: 'Checked', title: '原厂授权', desc: '原厂原装产品，正品保障，一对一专属客服跟单' },
@@ -142,17 +147,32 @@ function scrollToForm() {
   }
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!applyForm.companyName || !applyForm.category || !applyForm.contact || !applyForm.phone) {
     ElMessage.warning('请填写完整信息（公司名称、主营品类、联系人、联系电话为必填）')
     return
   }
   submitting.value = true
-  setTimeout(() => {
+  try {
+    const res = await submitPartnerApply({
+      companyName: applyForm.companyName,
+      category: applyForm.category,
+      contact: applyForm.contact,
+      phone: applyForm.phone,
+      email: applyForm.email,
+      message: applyForm.message,
+    })
+    if (res.success !== false) {
+      submitResult.value = '合作申请已提交，我们将在1-3个工作日内与您联系'
+      resetForm()
+    } else {
+      ElMessage.error(res.message || '提交失败')
+    }
+  } catch (e) {
+    ElMessage.error('提交失败，请稍后重试')
+  } finally {
     submitting.value = false
-    ElMessage.success('合作申请已提交，我们将在1-3个工作日内与您联系')
-    resetForm()
-  }, 1000)
+  }
 }
 
 function resetForm() {

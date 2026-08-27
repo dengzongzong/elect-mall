@@ -95,6 +95,7 @@ import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useUserStore } from '../stores/user'
+import { submitInquiry } from '../api/inquiry'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -120,42 +121,60 @@ function removeRow(idx) {
   }
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   // 检查登录
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录后再提交询价')
     router.push('/login')
     return
   }
-
+  
   // 验证必填项
   const hasEmptyPartNo = inquiryItems.some(item => !item.partNo.trim())
   if (hasEmptyPartNo) {
     ElMessage.warning('请填写完整的料号信息')
     return
   }
-
+  
   if (!contactForm.contact.trim()) {
     ElMessage.warning('请输入联系人姓名')
     return
   }
-
+  
   if (!contactForm.phone.trim()) {
     ElMessage.warning('请输入联系电话')
     return
   }
-
+  
   // 提交询价
   submitting.value = true
-  setTimeout(() => {
+  try {
+    const res = await submitInquiry({
+      contact: contactForm.contact,
+      phone: contactForm.phone,
+      remark: contactForm.remark,
+      items: inquiryItems.map(item => ({
+        partNo: item.partNo,
+        brand: item.brand,
+        quantity: item.quantity,
+        targetPrice: item.targetPrice || null,
+      })),
+    })
+    if (res.success !== false) {
+      ElMessage.success('询价已提交，客服人员将在1个工作日内与您联系')
+      // 重置表单
+      inquiryItems.splice(0, inquiryItems.length, { partNo: '', brand: '', quantity: 1, targetPrice: '' })
+      contactForm.contact = ''
+      contactForm.phone = ''
+      contactForm.remark = ''
+    } else {
+      ElMessage.error(res.message || '提交失败')
+    }
+  } catch (e) {
+    ElMessage.error('提交失败，请稍后重试')
+  } finally {
     submitting.value = false
-    ElMessage.success('询价已提交，客服人员将在1个工作日内与您联系')
-    // 重置表单
-    inquiryItems.splice(0, inquiryItems.length, { partNo: '', brand: '', quantity: 1, targetPrice: '' })
-    contactForm.contact = ''
-    contactForm.phone = ''
-    contactForm.remark = ''
-  }, 1000)
+  }
 }
 </script>
 

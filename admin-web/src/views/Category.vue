@@ -5,12 +5,19 @@
         <h2>分类管理</h2>
         <p>管理电子元器件的分类体系，支持多级分类结构。</p>
       </div>
-      <el-button type="danger">
+      <el-button type="danger" @click="handleAddRoot">
         <el-icon><Plus /></el-icon>新增分类
       </el-button>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" stripe row-key="id" default-expand-all style="width: 100%">
+      <el-table
+        v-loading="loading"
+        :data="tableData"
+        stripe
+        row-key="id"
+        default-expand-all
+        style="width: 100%"
+      >
         <el-table-column prop="name" label="分类名称" min-width="200" />
         <el-table-column prop="code" label="分类编码" width="150" />
         <el-table-column prop="sort" label="排序" width="80" />
@@ -19,61 +26,145 @@
             <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default>
-            <el-button type="primary" link size="small">编辑</el-button>
-            <el-button type="success" link size="small">新增子类</el-button>
-            <el-button type="danger" link size="small">删除</el-button>
+        <el-table-column label="操作" width="240" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button type="success" link size="small" @click="handleAddSub(row)">新增子类</el-button>
+            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
+
+    <!-- 新增/编辑分类对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="form.name" placeholder="请输入分类名称" />
+        </el-form-item>
+        <el-form-item label="分类编码" prop="code">
+          <el-input v-model="form.code" placeholder="请输入分类编码" />
+        </el-form-item>
+        <el-form-item label="排序" prop="sort">
+          <el-input-number v-model="form.sort" :min="0" :max="999" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio value="启用">启用</el-radio>
+            <el-radio value="禁用">禁用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminCategories, saveCategory, deleteCategory } from '../api/admin'
 
-const tableData = ref([
-  {
-    id: 1,
-    name: '集成电路',
-    code: 'IC',
-    sort: 1,
-    status: '启用',
-    children: [
-      { id: 11, name: '微控制器(MCU)', code: 'MCU', sort: 1, status: '启用' },
-      { id: 12, name: '存储器', code: 'MEM', sort: 2, status: '启用' },
-      { id: 13, name: '放大器', code: 'AMP', sort: 3, status: '启用' }
-    ]
-  },
-  {
-    id: 2,
-    name: '被动元件',
-    code: 'PASSIVE',
-    sort: 2,
-    status: '启用',
-    children: [
-      { id: 21, name: '电阻', code: 'RES', sort: 1, status: '启用' },
-      { id: 22, name: '电容', code: 'CAP', sort: 2, status: '启用' },
-      { id: 23, name: '电感', code: 'IND', sort: 3, status: '启用' }
-    ]
-  },
-  {
-    id: 3,
-    name: '连接器',
-    code: 'CONN',
-    sort: 3,
-    status: '启用'
-  },
-  {
-    id: 4,
-    name: '传感器',
-    code: 'SENSOR',
-    sort: 4,
-    status: '启用'
+const loading = ref(false)
+const saving = ref(false)
+const tableData = ref([])
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const formRef = ref(null)
+const form = ref({
+  id: null,
+  parentId: null,
+  name: '',
+  code: '',
+  sort: 0,
+  status: '启用'
+})
+
+const rules = {
+  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入分类编码', trigger: 'blur' }]
+}
+
+async function fetchCategories() {
+  loading.value = true
+  try {
+    const res = await getAdminCategories()
+    tableData.value = res.data || []
+  } catch (e) {
+    ElMessage.error('获取分类列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+function openDialog(title, row) {
+  dialogTitle.value = title
+  form.value = {
+    id: row?.id || null,
+    parentId: row?.parentId || null,
+    name: row?.name || '',
+    code: row?.code || '',
+    sort: row?.sort ?? 0,
+    status: row?.status || '启用'
+  }
+  dialogVisible.value = true
+}
+
+function handleAddRoot() {
+  openDialog('新增分类', { sort: 0 })
+}
+
+function handleEdit(row) {
+  openDialog('编辑分类', row)
+}
+
+function handleAddSub(row) {
+  openDialog('新增子分类', { parentId: row.id, sort: 0 })
+}
+
+async function handleSave() {
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+  saving.value = true
+  try {
+    await saveCategory(form.value)
+    ElMessage.success('保存成功')
+    dialogVisible.value = false
+    await fetchCategories()
+  } catch (e) {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+function handleDelete(row) {
+  ElMessageBox.confirm(`确定删除分类「${row.name}」？`, '确认删除', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      await deleteCategory(row.id)
+      ElMessage.success('删除成功')
+      await fetchCategories()
+    } catch (e) {
+      ElMessage.error('删除失败')
+    }
+  }).catch(() => {})
+}
+
+onMounted(() => {
+  fetchCategories()
+})
 </script>
 
 <style scoped>

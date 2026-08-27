@@ -27,8 +27,8 @@
           <el-date-picker v-model="searchForm.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary">搜索</el-button>
-          <el-button>重置</el-button>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -49,9 +49,10 @@
         </el-table-column>
         <el-table-column prop="createTime" label="下单时间" width="180" />
         <el-table-column label="操作" width="200" fixed="right">
-          <template #default>
-            <el-button type="primary" link size="small">查看详情</el-button>
-            <el-button type="success" link size="small">发货</el-button>
+          <template #default="{ row }">
+            <el-button type="primary" link size="small" @click="$router.push(`/order/${row.id}`)">查看详情</el-button>
+            <el-button v-if="row.status === '待审核'" type="warning" link size="small" @click="handleAudit(row.id)">审核</el-button>
+            <el-button v-if="row.status === '待发货'" type="success" link size="small" @click="handleShip(row.id)">发货</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -68,7 +69,9 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getAdminOrders, auditOrder, shipOrder } from '../api/admin'
 
 const searchForm = reactive({
   orderNo: '',
@@ -78,23 +81,82 @@ const searchForm = reactive({
 
 const currentPage = ref(1)
 const pageSize = ref(20)
-const total = ref(200)
+const total = ref(0)
+const loading = ref(false)
 
 const statusMap = {
-  pending: { label: '待付款', type: 'warning' },
-  shipping: { label: '待发货', type: 'danger' },
-  delivered: { label: '已发货', type: 'primary' },
-  completed: { label: '已完成', type: 'success' },
-  cancelled: { label: '已取消', type: 'info' }
+  '待审核': { label: '待审核', type: 'warning' },
+  '待付款': { label: '待付款', type: 'warning' },
+  '待发货': { label: '待发货', type: 'danger' },
+  '待收货': { label: '已发货', type: 'primary' },
+  '已完成': { label: '已完成', type: 'success' },
+  '已取消': { label: '已取消', type: 'info' }
 }
 
-const tableData = ref([
-  { orderNo: 'ORD-20241215001', customer: '张三', totalAmount: 1250.00, itemCount: 5, status: 'shipping', createTime: '2024-12-15 10:30:00' },
-  { orderNo: 'ORD-20241215002', customer: '李四', totalAmount: 368.50, itemCount: 3, status: 'pending', createTime: '2024-12-15 11:20:00' },
-  { orderNo: 'ORD-20241214003', customer: '王五', totalAmount: 2890.00, itemCount: 12, status: 'delivered', createTime: '2024-12-14 14:30:00' },
-  { orderNo: 'ORD-20241214004', customer: '赵六', totalAmount: 156.00, itemCount: 2, status: 'completed', createTime: '2024-12-14 09:15:00' },
-  { orderNo: 'ORD-20241213005', customer: '钱七', totalAmount: 5200.00, itemCount: 8, status: 'cancelled', createTime: '2024-12-13 16:45:00' }
-])
+const tableData = ref([])
+
+async function fetchOrders() {
+  loading.value = true
+  try {
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value,
+    }
+    if (searchForm.orderNo) params.keyword = searchForm.orderNo
+    if (searchForm.status) params.status = searchForm.status
+
+    const res = await getAdminOrders(params)
+    if (res.data) {
+      if (res.data.records) {
+        tableData.value = res.data.records
+        total.value = res.data.total || 0
+      } else {
+        tableData.value = res.data
+      }
+    }
+  } catch (e) {
+    // ignore
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSearch() {
+  currentPage.value = 1
+  fetchOrders()
+}
+
+function handleReset() {
+  searchForm.orderNo = ''
+  searchForm.status = ''
+  searchForm.dateRange = null
+  currentPage.value = 1
+  fetchOrders()
+}
+
+async function handleAudit(id) {
+  try {
+    await auditOrder(id)
+    ElMessage.success('审核通过')
+    fetchOrders()
+  } catch (e) {
+    ElMessage.error('操作失败')
+  }
+}
+
+async function handleShip(id) {
+  try {
+    await shipOrder(id)
+    ElMessage.success('已发货')
+    fetchOrders()
+  } catch (e) {
+    ElMessage.error('操作失败')
+  }
+}
+
+onMounted(() => {
+  fetchOrders()
+})
 </script>
 
 <style scoped>

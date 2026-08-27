@@ -143,27 +143,22 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
+import { getCategories, getBrands, getProducts } from '../api/product'
+import { getCooperateBrands, getNewsList } from '../api/content'
 
 const cartStore = useCartStore()
 const activeCat = ref(null)
 
-const categories = [
-  { id: 1, name: 'MCU微控制器', icon: 'Cpu', subs: [{ name: 'ARM Cortex-M', items: ['STM32系列', 'GD32系列', 'AT32系列', 'MM32系列'] }, { name: '8051系列', items: ['STC系列', '新唐系列', 'Silicon Labs'] }] },
-  { id: 2, name: '传感器', icon: 'DataAnalysis', subs: [{ name: '温度传感器', items: ['DS18B20', 'LM75', 'SHT30'] }, { name: '压力传感器', items: ['BMP280', 'MS5611', 'HP203B'] }] },
-  { id: 3, name: '电源管理', icon: 'Battery', subs: [{ name: 'DC-DC', items: ['LM2596', 'MP1584', 'TPS5430'] }, { name: 'LDO', items: ['AMS1117', 'LM1117', 'XC6206'] }] },
-  { id: 4, name: '模拟器件', icon: 'TrendCharts', subs: [{ name: '运放', items: ['LM358', 'LM324', 'OPA2333'] }, { name: 'ADC/DAC', items: ['ADS1115', 'MCP3008', 'DAC8552'] }] },
-  { id: 5, name: '连接器', icon: 'Connection', subs: [{ name: '排针排母', items: ['2.54mm排针', '2.0mm排母', '1.27mm排针'] }, { name: 'USB连接器', items: ['Type-C', 'Micro USB', 'Mini USB'] }] },
-  { id: 6, name: '无源器件', icon: 'SetUp', subs: [{ name: '电阻', items: ['贴片电阻', '插件电阻', '精密电阻'] }, { name: '电容', items: ['MLCC', '铝电解', '钽电容'] }] },
-  { id: 7, name: '分立半导体', icon: 'Monitor', subs: [{ name: '三极管', items: ['S8050', 'S8550', '2N2222'] }, { name: 'MOS管', items: ['IRF520', 'AO3400', 'SI2302'] }] },
-  { id: 8, name: '存储器', icon: 'Folder', subs: [{ name: 'Flash', items: ['W25Q64', 'W25Q128', 'GD25Q64'] }, { name: 'EEPROM', items: ['AT24C02', 'AT24C256', 'M24C02'] }] },
-  { id: 9, name: '无线模块', icon: 'Wifi', subs: [{ name: 'WiFi/BT', items: ['ESP8266', 'ESP32', 'CC3200'] }, { name: 'LoRa/NB-IoT', items: ['SX1278', 'ASR6505', 'BC95'] }] },
-  { id: 10, name: '开发工具', icon: 'Tools', subs: [{ name: '开发板', items: ['STM32开发板', 'Arduino', 'ESP32开发板'] }, { name: '调试器', items: ['J-Link', 'ST-Link', 'DAP-Link'] }] },
-]
+const categories = ref([])
+const brands = ref([])
+const hotProducts = ref([])
+const coopBrands = ref([])
+const newsList = ref([])
 
 const banners = [
   { title: '电子元器件一站式采购', subtitle: '海量型号现货供应，正品保障', bg: 'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)' },
@@ -178,46 +173,49 @@ const features = [
   { icon: 'List', title: '一站式采购', desc: 'BOM配单，批量采购更省心' },
 ]
 
-const brands = [
-  { id: 1, name: 'ST意法半导体' },
-  { id: 2, name: 'TI德州仪器' },
-  { id: 3, name: 'NXP恩智浦' },
-  { id: 4, name: 'Microchip' },
-  { id: 5, name: 'Infineon英飞凌' },
-  { id: 6, name: 'ADI亚德诺' },
-  { id: 7, name: 'Maxim美信' },
-  { id: 8, name: 'ON安森美' },
-  { id: 9, name: 'Renesas瑞萨' },
-  { id: 10, name: 'NVIDIA英伟达' },
-  { id: 11, name: 'Xilinx赛灵思' },
-  { id: 12, name: 'Broadcom博通' },
-]
+async function fetchHomeData() {
+  try {
+    const [catRes, brandRes, productRes, coopRes, newsRes] = await Promise.allSettled([
+      getCategories(),
+      getBrands(),
+      getProducts({ page: 1, size: 8, orderBy: 'created_at', orderDir: 'desc' }),
+      getCooperateBrands(),
+      getNewsList(),
+    ])
 
-const hotProducts = [
-  { id: 1001, name: 'STM32F103C8T6', model: 'ARM Cortex-M3 MCU', price: 8.50, stock: 9999 },
-  { id: 1002, name: 'ESP32-WROOM-32', model: 'WiFi+BT双模模块', price: 18.00, stock: 5000 },
-  { id: 1003, name: 'LM2596S-ADJ', model: 'DC-DC降压模块', price: 3.20, stock: 8888 },
-  { id: 1004, name: 'AMS1117-3.3', model: '3.3V LDO稳压器', price: 0.35, stock: 20000 },
-  { id: 1005, name: 'DS18B20', model: '数字温度传感器', price: 2.80, stock: 12000 },
-  { id: 1006, name: 'W25Q64JVSSIQ', model: '64M-bit SPI Flash', price: 1.50, stock: 15000 },
-  { id: 1007, name: 'AT24C02C-SSHM-T', model: '2Kb I2C EEPROM', price: 0.60, stock: 30000 },
-  { id: 1008, name: 'IRF520NPBF', model: 'N沟道MOS管', price: 1.20, stock: 8000 },
-]
+    if (catRes.status === 'fulfilled' && catRes.value?.data) {
+      categories.value = catRes.value.data
+    }
 
-const coopBrands = [
-  { name: 'ST', desc: '意法半导体，全球领先的MCU与传感器供应商' },
-  { name: 'TI', desc: '德州仪器，模拟器件与嵌入式处理领导者' },
-  { name: 'NXP', desc: '恩智浦半导体，汽车电子与安全连接方案' },
-  { name: 'Microchip', desc: 'Microchip Technology，MCU与混合信号器件' },
-]
+    if (brandRes.status === 'fulfilled' && brandRes.value?.data) {
+      brands.value = brandRes.value.data
+    }
 
-const newsList = [
-  { id: 1, title: '2024年电子元器件市场趋势分析', summary: '全球半导体市场预计2024年将增长13%，中国市场表现强劲...', day: '15', month: '2024-03' },
-  { id: 2, title: 'STM32H7系列新品发布，性能提升50%', summary: 'ST最新推出STM32H7R/S系列，基于Arm Cortex-M7内核...', day: '12', month: '2024-03' },
-  { id: 3, title: 'BOM配单服务升级，支持批量上传Excel', summary: '电子元器件商城BOM配单功能全面升级，支持Excel批量导入...', day: '08', month: '2024-03' },
-  { id: 4, title: '车规级芯片供应紧张，国产替代方案推荐', summary: '随着汽车电子化率提升，车规级芯片需求持续增长...', day: '05', month: '2024-03' },
-  { id: 5, title: '电子元器件商城入驻品牌突破500家', summary: '平台持续扩大合作品牌范围，目前已有超过500家品牌入驻...', day: '01', month: '2024-03' },
-]
+    if (productRes.status === 'fulfilled' && productRes.value?.data?.records) {
+      hotProducts.value = productRes.value.data.records
+    }
+
+    if (coopRes.status === 'fulfilled' && coopRes.value?.data) {
+      coopBrands.value = coopRes.value.data
+    }
+
+    if (newsRes.status === 'fulfilled' && newsRes.value?.data) {
+      newsList.value = newsRes.value.data.map(n => ({
+        id: n.id,
+        title: n.title,
+        summary: n.summary || '',
+        day: n.createdAt ? new Date(n.createdAt).getDate().toString().padStart(2, '0') : '',
+        month: n.createdAt ? new Date(n.createdAt).getFullYear() + '-' + String(new Date(n.createdAt).getMonth() + 1).padStart(2, '0') : '',
+      }))
+    }
+  } catch (e) {
+    // 静默忽略，组件使用空数据
+  }
+}
+
+onMounted(() => {
+  fetchHomeData()
+})
 
 function handleAddToCart(product) {
   cartStore.addItem({
