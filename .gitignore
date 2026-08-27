@@ -35,3 +35,14 @@ uploads/*
 # Playwright test reports
 playwright-report/
 test-results/
+
+# CRMEB PHP
+crmeb/vendor/
+crmeb/runtime/
+crmeb/.constant
+crmeb/.version
+crmeb/.phpstorm.meta.php
+crmeb/public/install/lock
+crmeb/public/install/.env
+crmeb/public/install/crmeb.sql
+crmeb/composer.lock

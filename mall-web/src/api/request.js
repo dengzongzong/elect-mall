@@ -14,6 +14,7 @@ request.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) {
+      // CRMEB使用 Bearer 格式 token
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -23,25 +24,40 @@ request.interceptors.request.use(
   }
 )
 
-// 响应拦截器
+// 响应拦截器 - 适配 CRMEB 响应格式
+// CRMEB格式: { status: 200, msg: "success", data: {...} }
+// 兼容旧格式: { code: 200, message: "success", data: {...} }
 request.interceptors.response.use(
   (response) => {
     const res = response.data
-    // 如果后端返回了 code 且不等于 200，视为错误
-    if (res.code !== undefined && res.code !== 200) {
-      ElMessage.error(res.message || '请求失败')
-      return Promise.reject(new Error(res.message || '请求失败'))
+
+    // 兼容 CRMEB 格式 (status/msg) 和旧格式 (code/message)
+    const code = res.status !== undefined ? res.status : res.code
+    const msg = res.msg || res.message || ''
+
+    if (code !== undefined && code !== 200) {
+      // 401 未授权 - 跳转登录
+      if (code === 401 || code === 410) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('userInfo')
+        if (window.location.hash !== '#/login') {
+          window.location.href = '/#/login'
+        }
+        return Promise.reject(new Error(msg || '未登录'))
+      }
+      ElMessage.error(msg || '请求失败')
+      return Promise.reject(new Error(msg || '请求失败'))
     }
-    return res
+
+    // 标准化返回数据
+    return res.data !== undefined ? res.data : res
   },
   (error) => {
     if (error.response) {
       const { status } = error.response
       if (status === 401) {
-        // token 过期或未授权，清除 token 并跳转登录
         localStorage.removeItem('token')
         localStorage.removeItem('userInfo')
-        // 避免重复跳转
         if (window.location.hash !== '#/login') {
           window.location.href = '/#/login'
         }

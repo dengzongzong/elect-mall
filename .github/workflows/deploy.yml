@@ -13,36 +13,28 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Backend: Java 17 + Maven
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
+    # CRMEB PHP Backend
+    - name: Set up PHP 7.4
+      uses: shivammathur/setup-php@v2
       with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
+        php-version: '7.4'
+        extensions: json, curl, bcmath, mbstring, zip, simplexml, gd, pdo, pdo_mysql
+        tools: composer:v2
 
-    - name: Build Backend with Maven
+    - name: Install CRMEB PHP Dependencies
       run: |
-        cd backend
-        mvn clean package -DskipTests
-        ls target/*.jar
+        cd crmeb
+        composer install --no-dev --optimize-autoloader --no-interaction
 
-    # Admin Web: Node.js + Vue3
-    - name: Set up Node.js 20
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: admin-web/package-lock.json
-
-    - name: Build Admin Web
+    - name: Prepare CRMEB Environment
       run: |
-        cd admin-web
-        npm install
-        npm run build
-        ls dist/
+        cd crmeb
+        cp .env.example .env 2>/dev/null || true
+        chmod -R 777 runtime
+        chmod -R 777 crmeb
+        chmod -R 777 public
 
-    # Mall Web: Node.js + Vue3
+    # Mall Web Frontend (Vue 3)
     - name: Set up Node.js 20
       uses: actions/setup-node@v4
       with:
@@ -57,21 +49,36 @@ jobs:
         npm run build
         ls dist/
 
-    # Upload artifacts
-    - name: Upload Backend JAR
-      uses: actions/upload-artifact@v4
+    # Admin Web Frontend (Vue 3)
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
       with:
-        name: backend-jar
-        path: backend/target/*.jar
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: admin-web/package-lock.json
 
-    - name: Upload Admin Web
+    - name: Build Admin Web
+      run: |
+        cd admin-web
+        npm install
+        npm run build
+        ls dist/
+
+    # Upload artifacts
+    - name: Upload CRMEB Backend
       uses: actions/upload-artifact@v4
       with:
-        name: admin-web-dist
-        path: admin-web/dist/
+        name: crmeb-backend
+        path: crmeb/
 
     - name: Upload Mall Web
       uses: actions/upload-artifact@v4
       with:
         name: mall-web-dist
         path: mall-web/dist/
+
+    - name: Upload Admin Web
+      uses: actions/upload-artifact@v4
+      with:
+        name: admin-web-dist
+        path: admin-web/dist/
