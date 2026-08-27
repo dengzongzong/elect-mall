@@ -38,12 +38,12 @@ public class AdminUploadController {
     }
 
     /**
-     * 上传文件
+     * 上传文件（兼容前端 /admin/upload 路径）
      *
      * @param file 文件
      * @return 文件URL
      */
-    @PostMapping("/file")
+    @PostMapping({"", "/file"})
     public Map<String, Object> uploadFile(@RequestParam("file") MultipartFile file) {
         String fileUrl = adminService.uploadFile(file, "file");
 

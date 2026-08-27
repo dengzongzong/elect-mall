@@ -19,11 +19,11 @@
         style="width: 100%"
       >
         <el-table-column prop="name" label="分类名称" min-width="200" />
-        <el-table-column prop="code" label="分类编码" width="150" />
+        <el-table-column prop="prefix" label="分类编码" width="150" />
         <el-table-column prop="sort" label="排序" width="80" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '禁用' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
@@ -47,16 +47,16 @@
         <el-form-item label="分类名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入分类名称" />
         </el-form-item>
-        <el-form-item label="分类编码" prop="code">
-          <el-input v-model="form.code" placeholder="请输入分类编码" />
+        <el-form-item label="分类编码" prop="prefix">
+          <el-input v-model="form.prefix" placeholder="请输入分类编码" />
         </el-form-item>
         <el-form-item label="排序" prop="sort">
           <el-input-number v-model="form.sort" :min="0" :max="999" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio value="启用">启用</el-radio>
-            <el-radio value="禁用">禁用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -83,14 +83,14 @@ const form = ref({
   id: null,
   parentId: null,
   name: '',
-  code: '',
+  prefix: '',
   sort: 0,
-  status: '启用'
+  status: 1
 })
 
 const rules = {
   name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入分类编码', trigger: 'blur' }]
+  prefix: [{ required: true, message: '请输入分类编码', trigger: 'blur' }]
 }
 
 async function fetchCategories() {
@@ -111,9 +111,9 @@ function openDialog(title, row) {
     id: row?.id || null,
     parentId: row?.parentId || null,
     name: row?.name || '',
-    code: row?.code || '',
+    prefix: row?.prefix || '',
     sort: row?.sort ?? 0,
-    status: row?.status || '启用'
+    status: row?.status ?? 1
   }
   dialogVisible.value = true
 }

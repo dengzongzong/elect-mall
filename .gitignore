@@ -31,3 +31,7 @@ uploads/*
 # Env
 .env
 .env.local
+
+# Playwright test reports
+playwright-report/
+test-results/

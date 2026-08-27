@@ -6,22 +6,19 @@
         <p>发布和管理商城新闻资讯、行业动态等内容。</p>
       </div>
       <el-button type="danger" @click="handleAdd">
-        <el-icon><Edit /></el-icon>发布新闻
+        <el-icon><Edit /></el-icon>新增新闻
       </el-button>
     </div>
     <el-card shadow="hover">
       <el-table :data="tableData" stripe v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="title" label="新闻标题" min-width="280" />
-        <el-table-column prop="author" label="作者" width="120" />
-        <el-table-column prop="category" label="分类" width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === '已发布' ? 'success' : 'info'">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '已发布' : '草稿' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="publishTime" label="发布时间" width="180" />
-        <el-table-column prop="views" label="浏览量" width="90" />
+        <el-table-column prop="createdAt" label="创建时间" width="180" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
@@ -36,20 +33,13 @@
         <el-form-item label="新闻标题">
           <el-input v-model="form.title" placeholder="请输入新闻标题" />
         </el-form-item>
-        <el-form-item label="作者">
-          <el-input v-model="form.author" placeholder="请输入作者" />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="form.category" placeholder="请选择分类" style="width: 100%">
-            <el-option label="行业动态" value="行业动态" />
-            <el-option label="新品资讯" value="新品资讯" />
-            <el-option label="商城公告" value="商城公告" />
-          </el-select>
+        <el-form-item label="新闻内容">
+          <el-input v-model="form.content" type="textarea" :rows="5" placeholder="请输入新闻内容" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio value="草稿">草稿</el-radio>
-            <el-radio value="已发布">已发布</el-radio>
+            <el-radio :value="1">已发布</el-radio>
+            <el-radio :value="0">草稿</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -73,9 +63,8 @@ const dialogTitle = ref('')
 const form = ref({
   id: null,
   title: '',
-  author: '',
-  category: '',
-  status: '草稿'
+  content: '',
+  status: 1
 })
 
 async function fetchNews() {
@@ -91,8 +80,8 @@ async function fetchNews() {
 }
 
 function handleAdd() {
-  dialogTitle.value = '发布新闻'
-  form.value = { id: null, title: '', author: '', category: '', status: '草稿' }
+  dialogTitle.value = '新增新闻'
+  form.value = { id: null, title: '', content: '', status: 1 }
   dialogVisible.value = true
 }
 

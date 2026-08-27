@@ -53,7 +53,7 @@ public class AdminSettingController {
      *
      * @return 系统配置列表
      */
-    @GetMapping("/config")
+    @GetMapping({"/config", "/list"})
     public List<SysConfig> getConfig() {
         return adminService.getConfigs();
     }
@@ -64,7 +64,7 @@ public class AdminSettingController {
      * @param config 系统配置
      * @return 操作结果
      */
-    @PutMapping("/config")
+    @PutMapping({"/config", "/save"})
     public Map<String, Object> updateConfig(@RequestBody SysConfig config) {
         adminService.updateConfig(config);
 

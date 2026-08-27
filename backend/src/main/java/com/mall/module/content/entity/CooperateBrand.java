@@ -24,6 +24,9 @@ public class CooperateBrand {
     /** 品牌描述 */
     private String description;
 
+    /** 展示大图URL */
+    private String showImage;
+
     /** 排序 */
     private Integer sort;
 

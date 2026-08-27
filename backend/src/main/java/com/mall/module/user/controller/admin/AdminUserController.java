@@ -34,7 +34,7 @@ public class AdminUserController {
      * @param params 查询参数（page, size, keyword）
      * @return 分页结果
      */
-    @GetMapping("/page")
+    @GetMapping({"/page", "/list"})
     public IPage<User> page(@RequestParam Map<String, Object> params) {
         int page = params.get("page") != null ? Integer.parseInt(params.get("page").toString()) : 1;
         int size = params.get("size") != null ? Integer.parseInt(params.get("size").toString()) : 10;

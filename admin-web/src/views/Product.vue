@@ -9,7 +9,7 @@
         <el-button type="danger" @click="handleImport">
           <el-icon><Upload /></el-icon>导入商品
         </el-button>
-        <el-button type="primary">
+        <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>新增商品
         </el-button>
       </div>
@@ -20,17 +20,14 @@
           <el-input v-model="searchForm.name" placeholder="请输入商品名称" clearable />
         </el-form-item>
         <el-form-item label="商品分类">
-          <el-select v-model="searchForm.category" placeholder="请选择分类" clearable>
-            <el-option label="集成电路" value="ic" />
-            <el-option label="被动元件" value="passive" />
-            <el-option label="连接器" value="connector" />
-            <el-option label="传感器" value="sensor" />
+          <el-select v-model="searchForm.categoryId" placeholder="请选择分类" clearable>
+            <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
-            <el-option label="上架" value="on" />
-            <el-option label="下架" value="off" />
+            <el-option label="上架" value="1" />
+            <el-option label="下架" value="0" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -43,8 +40,7 @@
       <el-table :data="tableData" stripe style="width: 100%">
         <el-table-column prop="id" label="商品编号" width="120" />
         <el-table-column prop="name" label="商品名称" min-width="200" />
-        <el-table-column prop="category" label="分类" width="120" />
-        <el-table-column prop="brand" label="品牌" width="120" />
+        <el-table-column prop="partNo" label="料号" width="150" />
         <el-table-column prop="price" label="价格" width="120">
           <template #default="{ row }">
             ¥{{ row.price }}
@@ -53,8 +49,8 @@
         <el-table-column prop="stock" label="库存" width="100" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === '上架' ? 'success' : 'info'">
-              {{ row.status }}
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+              {{ row.status === 1 ? '上架' : '下架' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -75,17 +71,50 @@
         />
       </div>
     </el-card>
+
+    <!-- 新增/编辑商品对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
+      <el-form :model="form" label-width="100px">
+        <el-form-item label="商品名称">
+          <el-input v-model="form.name" placeholder="请输入商品名称" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
+            <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="料号">
+          <el-input v-model="form.partNo" placeholder="请输入料号" />
+        </el-form-item>
+        <el-form-item label="价格">
+          <el-input-number v-model="form.price" :min="0" :precision="2" />
+        </el-form-item>
+        <el-form-item label="库存">
+          <el-input-number v-model="form.stock" :min="0" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">上架</el-radio>
+            <el-radio :value="0">下架</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAdminProducts, deleteProduct } from '../api/admin'
+import { getAdminProducts, saveProduct, deleteProduct, getAdminCategories } from '../api/admin'
 
 const searchForm = reactive({
   name: '',
-  category: '',
+  categoryId: '',
   status: ''
 })
 
@@ -93,8 +122,29 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const loading = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('')
+const categories = ref([])
 
 const tableData = ref([])
+const form = ref({
+  id: null,
+  name: '',
+  categoryId: null,
+  partNo: '',
+  price: 0,
+  stock: 0,
+  status: 1
+})
+
+async function fetchCategories() {
+  try {
+    const res = await getAdminCategories()
+    categories.value = res.data || []
+  } catch (e) {
+    // ignore
+  }
+}
 
 async function fetchProducts() {
   loading.value = true
@@ -104,8 +154,8 @@ async function fetchProducts() {
       size: pageSize.value,
     }
     if (searchForm.name) params.keyword = searchForm.name
-    if (searchForm.category) params.categoryId = searchForm.category
-    if (searchForm.status) params.status = searchForm.status === 'on' ? 1 : 0
+    if (searchForm.categoryId) params.categoryId = searchForm.categoryId
+    if (searchForm.status) params.status = searchForm.status
 
     const res = await getAdminProducts(params)
     if (res.data) {
@@ -130,7 +180,7 @@ function handleSearch() {
 
 function handleReset() {
   searchForm.name = ''
-  searchForm.category = ''
+  searchForm.categoryId = ''
   searchForm.status = ''
   currentPage.value = 1
   fetchProducts()
@@ -138,6 +188,23 @@ function handleReset() {
 
 function handleImport() {
   ElMessage.info('导入商品功能开发中')
+}
+
+function handleAdd() {
+  dialogTitle.value = '新增商品'
+  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, stock: 0, status: 1 }
+  dialogVisible.value = true
+}
+
+async function handleSave() {
+  try {
+    await saveProduct(form.value)
+    ElMessage.success('保存成功')
+    dialogVisible.value = false
+    fetchProducts()
+  } catch (e) {
+    ElMessage.error('保存失败')
+  }
 }
 
 function handleDelete(id) {
@@ -155,6 +222,7 @@ function handleDelete(id) {
 }
 
 onMounted(() => {
+  fetchCategories()
   fetchProducts()
 })
 </script>

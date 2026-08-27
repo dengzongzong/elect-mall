@@ -12,16 +12,20 @@
     <el-card shadow="hover">
       <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="name" label="品牌名称" min-width="160" />
-        <el-table-column prop="country" label="国家/地区" width="120" />
-        <el-table-column prop="website" label="官方网站" min-width="200">
+        <el-table-column prop="logo" label="品牌Logo" width="200">
           <template #default="{ row }">
-            <el-link type="primary" :underline="false">{{ row.website }}</el-link>
+            <el-link type="primary" :underline="false">{{ row.logo }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="productCount" label="商品数量" width="100" />
+        <el-table-column prop="sort" label="排序" width="80" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === '启用' ? 'success' : 'info'">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '停用' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="isCooperate" label="合作品牌" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.isCooperate === 1 ? 'success' : 'info'">{{ row.isCooperate === 1 ? '是' : '否' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
@@ -39,19 +43,25 @@
         <el-form-item label="品牌名称" required>
           <el-input v-model="form.name" placeholder="请输入品牌名称" />
         </el-form-item>
-        <el-form-item label="国家/地区" required>
-          <el-input v-model="form.country" placeholder="请输入国家/地区" />
+        <el-form-item label="品牌Logo">
+          <el-input v-model="form.logo" placeholder="请输入Logo URL" />
         </el-form-item>
-        <el-form-item label="官方网站">
-          <el-input v-model="form.website" placeholder="请输入官方网站" />
+        <el-form-item label="品牌描述">
+          <el-input v-model="form.description" type="textarea" placeholder="请输入品牌描述" />
         </el-form-item>
-        <el-form-item label="商品数量">
-          <el-input-number v-model="form.productCount" :min="0" />
+        <el-form-item label="排序">
+          <el-input-number v-model="form.sort" :min="0" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio value="启用">启用</el-radio>
-            <el-radio value="停用">停用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">停用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="合作品牌">
+          <el-radio-group v-model="form.isCooperate">
+            <el-radio :value="1">是</el-radio>
+            <el-radio :value="0">否</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -77,10 +87,11 @@ const dialogTitle = ref('新增品牌')
 const form = ref({
   id: null,
   name: '',
-  country: '',
-  website: '',
-  productCount: 0,
-  status: '启用'
+  logo: '',
+  description: '',
+  sort: 0,
+  status: 1,
+  isCooperate: 0
 })
 
 async function fetchBrands() {
@@ -97,7 +108,7 @@ async function fetchBrands() {
 
 function handleAdd() {
   dialogTitle.value = '新增品牌'
-  form.value = { id: null, name: '', country: '', website: '', productCount: 0, status: '启用' }
+  form.value = { id: null, name: '', logo: '', description: '', sort: 0, status: 1, isCooperate: 0 }
   dialogVisible.value = true
 }
 
@@ -128,7 +139,7 @@ async function handleDelete(row) {
       confirmButtonText: '确定',
       cancelButtonText: '取消'
     })
-    await request.delete('/admin/brand/delete', { data: { id: row.id } })
+    await request.delete('/brand/delete', { data: { id: row.id } })
     ElMessage.success('删除成功')
     await fetchBrands()
   } catch (e) {

@@ -5,32 +5,43 @@
       <div class="breadcrumb">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-          <el-breadcrumb-item>新闻资讯</el-breadcrumb-item>
+          <el-breadcrumb-item>新品资讯</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
-      <div class="page-card">
-        <h3>新闻资讯</h3>
-        <p class="page-tip">了解电子元器件行业最新动态</p>
-        <div class="news-list">
-          <div class="news-item" v-for="news in newsList" :key="news.id" @click="$router.push(`/news/${news.id}`)">
-            <div class="news-date">
-              <span class="day">{{ news.day }}</span>
-              <span class="month">{{ news.month }}</span>
-            </div>
-            <div class="news-content">
-              <h4>{{ news.title }}</h4>
-              <p class="news-summary">{{ news.summary }}</p>
-              <div class="news-meta">
-                <span>{{ news.source }}</span>
-                <span>{{ news.views }} 次阅读</span>
+      <div class="page-layout">
+        <div class="news-content">
+          <div class="news-list">
+            <div class="news-item" v-for="news in newsList" :key="news.id" @click="$router.push(`/news/${news.id}`)">
+              <div class="news-item-img">
+                <img :src="news.image" :alt="news.title" @error="e => e.target.style.display='none'" />
+              </div>
+              <div class="news-item-info">
+                <h3>{{ news.title }}</h3>
+                <p class="news-item-desc">{{ news.summary }}</p>
+                <div class="news-item-meta">
+                  <span class="news-item-date">
+                    <el-icon><Calendar /></el-icon> {{ news.month }}
+                  </span>
+                  <span class="news-item-views">
+                    <el-icon><View /></el-icon> {{ news.views }}人浏览
+                  </span>
+                </div>
               </div>
             </div>
-            <el-icon class="news-arrow"><ArrowRight /></el-icon>
+          </div>
+          <div class="pagination-wrap" v-if="totalPages > 0">
+            <el-pagination background layout="prev, pager, next" :total="total" :page-size="pageSize" :current-page="currentPage" @current-change="changePage" />
           </div>
         </div>
-        <div class="pagination-wrap">
-          <el-pagination background layout="prev, pager, next" :total="30" />
-        </div>
+        <aside class="news-sidebar">
+          <div class="sidebar-section">
+            <h4>最新资讯</h4>
+            <div class="sidebar-news-item" v-for="n in latestNews" :key="n.id" @click="$router.push(`/news/${n.id}`)">
+              <p>{{ n.title }}</p>
+              <span class="sidebar-date">{{ n.shortDate }}</span>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
     <MainFooter />
@@ -38,17 +49,61 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
+import { getNewsList } from '../api/content'
 
-const newsList = [
-  { id: 1, title: '2024年电子元器件市场趋势分析', summary: '全球半导体市场预计2024年将增长13%，中国市场表现强劲，AI芯片和汽车电子成为主要增长驱动力...', day: '15', month: '2024-03', source: '行业研究', views: 1256 },
-  { id: 2, title: 'STM32H7系列新品发布，性能提升50%', summary: 'ST最新推出STM32H7R/S系列，基于Arm Cortex-M7内核，主频提升至600MHz，集成神经网络加速器...', day: '12', month: '2024-03', source: '厂商动态', views: 2340 },
-  { id: 3, title: 'BOM配单服务升级，支持批量上传Excel', summary: '电子元器件商城BOM配单功能全面升级，支持Excel批量导入，自动识别型号，快速报价...', day: '08', month: '2024-03', source: '平台公告', views: 876 },
-  { id: 4, title: '车规级芯片供应紧张，国产替代方案推荐', summary: '随着汽车电子化率提升，车规级芯片需求持续增长，国产替代方案逐渐成熟，推荐多款国产车规级芯片...', day: '05', month: '2024-03', source: '行业分析', views: 1890 },
-  { id: 5, title: '电子元器件商城入驻品牌突破500家', summary: '平台持续扩大合作品牌范围，目前已有超过500家品牌入驻，涵盖MCU、传感器、电源管理等全品类...', day: '01', month: '2024-03', source: '平台公告', views: 654 },
-  { id: 6, title: 'RISC-V生态快速发展，国产MCU迎来新机遇', summary: 'RISC-V开源指令集架构快速发展，国产MCU厂商纷纷推出RISC-V产品，生态建设加速推进...', day: '28', month: '2024-02', source: '技术前沿', views: 1567 },
-]
+const newsList = ref([])
+const latestNews = ref([])
+const currentPage = ref(1)
+const pageSize = 5
+const total = ref(0)
+
+const totalPages = computed(() => Math.ceil(total.value / pageSize))
+
+const allNews = ref([])
+
+onMounted(async () => {
+  try {
+    const res = await getNewsList()
+    const data = res.data || res || []
+    allNews.value = data.map(formatNews)
+    total.value = data.length
+    updatePage()
+  } catch (e) {
+    console.error('获取新闻列表失败', e)
+  }
+})
+
+function formatNews(n) {
+  const date = n.createdAt ? new Date(n.createdAt) : new Date()
+  const month = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const shortDate = n.createdAt ? n.createdAt.substring(0, 10) : ''
+  return {
+    id: n.id,
+    title: n.title,
+    image: n.image || '',
+    summary: (n.content || '').replace(/[*#\-\n]/g, '').substring(0, 120) + '...',
+    views: n.likeCount || 0,
+    month: shortDate,
+    day,
+    shortDate,
+  }
+}
+
+function updatePage() {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  newsList.value = allNews.value.slice(start, end)
+  latestNews.value = allNews.value.slice(0, 5)
+}
+
+function changePage(page) {
+  currentPage.value = page
+  updatePage()
+}
 </script>
 
 <style scoped>
@@ -67,36 +122,27 @@ const newsList = [
   padding: 16px 0;
 }
 
-.page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 40px;
-  margin-bottom: 40px;
+.page-layout {
+  display: flex;
+  gap: 24px;
+  padding-bottom: 40px;
 }
 
-.page-card h3 {
-  font-size: 22px;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 8px;
-}
-
-.page-tip {
-  font-size: 14px;
-  color: #999;
-  margin-bottom: 30px;
+.news-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .news-list {
-  display: flex;
-  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .news-item {
   display: flex;
-  align-items: flex-start;
   gap: 20px;
-  padding: 24px 0;
+  padding: 24px;
   border-bottom: 1px solid #f5f5f5;
   cursor: pointer;
   transition: all 0.2s;
@@ -107,73 +153,139 @@ const newsList = [
 }
 
 .news-item:hover {
-  padding-left: 10px;
+  background: #fafafa;
 }
 
-.news-date {
+.news-item-img {
+  width: 180px;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.news-item-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.news-item:hover .news-item-img img {
+  transform: scale(1.05);
+}
+
+.news-item-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 60px;
-  padding-top: 4px;
+  justify-content: space-between;
+  min-width: 0;
 }
 
-.day {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--theme-color);
-  line-height: 1.2;
-}
-
-.month {
-  font-size: 12px;
-  color: #999;
-}
-
-.news-content {
-  flex: 1;
-}
-
-.news-content h4 {
+.news-item-info h3 {
   font-size: 16px;
   font-weight: 600;
   color: #333;
   margin-bottom: 8px;
+  line-height: 1.4;
   transition: color 0.2s;
 }
 
-.news-item:hover .news-content h4 {
+.news-item:hover .news-item-info h3 {
   color: var(--theme-color);
 }
 
-.news-summary {
-  font-size: 14px;
+.news-item-desc {
+  font-size: 13px;
   color: #888;
   line-height: 1.6;
   margin-bottom: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.news-meta {
+.news-item-meta {
   display: flex;
   gap: 16px;
   font-size: 12px;
   color: #bbb;
 }
 
-.news-arrow {
-  color: #ccc;
-  font-size: 16px;
-  margin-top: 8px;
-  transition: color 0.2s;
-}
-
-.news-item:hover .news-arrow {
-  color: var(--theme-color);
+.news-item-meta .el-icon {
+  font-size: 12px;
+  vertical-align: middle;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: center;
-  margin-top: 30px;
+  margin-top: 24px;
+}
+
+/* 侧边栏 */
+.news-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+.sidebar-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.sidebar-section h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--theme-color);
+}
+
+.sidebar-news-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.sidebar-news-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar-news-item p {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.sidebar-news-item:hover p {
+  color: var(--theme-color);
+}
+
+.sidebar-date {
+  font-size: 12px;
+  color: #bbb;
+}
+
+@media (max-width: 768px) {
+  .page-layout {
+    flex-direction: column;
+  }
+
+  .news-sidebar {
+    width: 100%;
+  }
+
+  .news-item-img {
+    width: 120px;
+    height: 90px;
+  }
 }
 </style>

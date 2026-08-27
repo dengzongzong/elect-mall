@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
-        <div class="login-logo">E</div>
+        <img src="/logo.jpg" alt="得捷" class="login-logo" />
         <h2 class="login-title">电子元器件商城管理后台</h2>
         <p class="login-subtitle">请登录您的账号</p>
       </div>
@@ -150,16 +150,8 @@ async function handleLogin() {
 }
 
 .login-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  background-color: #E60012;
-  color: #fff;
-  border-radius: 12px;
-  font-size: 28px;
-  font-weight: bold;
+  height: 48px;
+  width: auto;
   margin-bottom: 16px;
 }
 

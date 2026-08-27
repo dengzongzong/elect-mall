@@ -30,7 +30,7 @@ public class AdminFinanceController {
      * @param params 查询参数（page, size, status, keyword）
      * @return 分页结果
      */
-    @GetMapping("/list")
+    @GetMapping({"/list", "/data"})
     public IPage<Order> list(@RequestParam Map<String, Object> params) {
         int page = params.get("page") != null ? Integer.parseInt(params.get("page").toString()) : 1;
         int size = params.get("size") != null ? Integer.parseInt(params.get("size").toString()) : 10;

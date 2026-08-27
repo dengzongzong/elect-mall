@@ -3,6 +3,7 @@ package com.mall.module.product.controller.admin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.mall.common.Result;
 import com.mall.module.product.dto.ProductQuery;
 import com.mall.module.product.entity.Product;
 import com.mall.module.product.service.ProductService;
@@ -29,18 +30,18 @@ public class AdminProductController {
      * 管理后台商品分页列表
      */
     @PostMapping("/page")
-    public IPage<Product> page(@RequestBody ProductQuery query) {
+    public Result<IPage<Product>> page(@RequestBody ProductQuery query) {
         Page<Product> pageParam = new Page<>(query.getPage(), query.getSize());
-        return productService.page(pageParam, query);
+        return Result.success(productService.page(pageParam, query));
     }
 
     /**
      * 新增商品
      */
-    @PostMapping("/save")
-    public void save(@RequestBody Map<String, Object> params) {
+    @PostMapping({"/save", "/add"})
+    public Result<Void> save(@RequestBody Map<String, Object> params) {
         Product product = new Product();
-        product.setCategoryId(Long.valueOf(params.get("categoryId").toString()));
+        product.setCategoryId(params.get("categoryId") != null ? Long.valueOf(params.get("categoryId").toString()) : null);
         product.setBrandId(params.get("brandId") != null ? Long.valueOf(params.get("brandId").toString()) : null);
         product.setPartNo((String) params.get("partNo"));
         product.setName((String) params.get("name"));
@@ -57,13 +58,14 @@ public class AdminProductController {
         @SuppressWarnings("unchecked")
         Map<String, Object> attrs = (Map<String, Object>) params.get("attrs");
         productService.save(product, attrs);
+        return Result.success();
     }
 
     /**
      * 更新商品
      */
     @PutMapping("/update")
-    public void update(@RequestBody Map<String, Object> params) {
+    public Result<Void> update(@RequestBody Map<String, Object> params) {
         Product product = new Product();
         product.setId(Long.valueOf(params.get("id").toString()));
         product.setCategoryId(params.get("categoryId") != null ? Long.valueOf(params.get("categoryId").toString()) : null);
@@ -83,14 +85,19 @@ public class AdminProductController {
         @SuppressWarnings("unchecked")
         Map<String, Object> attrs = (Map<String, Object>) params.get("attrs");
         productService.update(product, attrs);
+        return Result.success();
     }
 
     /**
      * 删除商品（逻辑删除）
      */
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
+    @DeleteMapping({"/{id}", "/delete"})
+    public Result<Void> delete(@PathVariable(required = false) Long id, @RequestBody(required = false) Map<String, Object> body) {
+        if (id == null && body != null && body.containsKey("id")) {
+            id = Long.valueOf(body.get("id").toString());
+        }
         productService.delete(id);
+        return Result.success();
     }
 
     /**
@@ -98,7 +105,7 @@ public class AdminProductController {
      * 支持覆盖模式参数 replaceMode
      */
     @PostMapping("/import")
-    public ProductImportResultVO importExcel(@RequestParam("file") MultipartFile file,
+    public Result<ProductImportResultVO> importExcel(@RequestParam("file") MultipartFile file,
                                               @RequestParam("categoryId") Long categoryId,
                                               @RequestParam(value = "replaceMode", defaultValue = "false") boolean replaceMode) {
         Map<String, Object> result = productService.importExcel(file, categoryId, replaceMode);
@@ -107,7 +114,7 @@ public class AdminProductController {
         vo.setSuccessCount((Integer) result.get("successCount"));
         vo.setFailCount((Integer) result.get("failCount"));
         vo.setFailDetailUrl((String) result.get("failDetailUrl"));
-        return vo;
+        return Result.success(vo);
     }
 
     /**

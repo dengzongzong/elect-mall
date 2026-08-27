@@ -213,6 +213,16 @@ public class ContentServiceImpl implements ContentService {
         }
     }
 
+    @Override
+    public void deleteCooperateBrand(Long id) {
+        CooperateBrand brand = cooperateBrandMapper.selectById(id);
+        if (brand != null) {
+            brand.setDeleted(1);
+            brand.setUpdatedAt(LocalDateTime.now());
+            cooperateBrandMapper.updateById(brand);
+        }
+    }
+
     // ========== 合作伙伴申请管理 ==========
 
     @Override

@@ -20,7 +20,8 @@
         <div class="advantages-grid">
           <div class="advantage-card" v-for="adv in advantages" :key="adv.title">
             <div class="adv-icon">
-              <el-icon :size="36"><component :is="adv.icon" /></el-icon>
+              <span class="adv-mark" v-if="adv.mark">{{ adv.mark }}</span>
+              <el-icon :size="24" v-else><component :is="adv.icon" /></el-icon>
             </div>
             <h4>{{ adv.title }}</h4>
             <p>{{ adv.desc }}</p>
@@ -110,12 +111,15 @@ const submitting = ref(false)
 const submitResult = ref('')
 
 const advantages = [
-  { icon: 'Checked', title: '原厂授权', desc: '原厂原装产品，正品保障，一对一专属客服跟单' },
-  { icon: 'Timer', title: '极速发货', desc: '自营现货，高效智能的仓储管理，极速发货' },
-  { icon: 'Grid', title: '品类齐全', desc: '线上线下全面整合资源，品类齐全，一站采购' },
-  { icon: 'TrendCharts', title: '营销推广', desc: '专业的运营推广团队，大数据分析及营销服务' },
-  { icon: 'Connection', title: '资源整合', desc: '线上线下全面整合资源，拓展销售渠道' },
-  { icon: 'DataBoard', title: '数据服务', desc: '大数据分析，精准营销，提升销售转化率' },
+  { icon: 'Checked', title: '原厂授权', desc: '原厂原装产品，正品保障', mark: '优' },
+  { icon: 'Timer', title: '极速发货', desc: '自营现货，极速发货', mark: '快' },
+  { icon: 'Grid', title: '品类齐全', desc: '品类齐全，一站采购', mark: '全' },
+  { icon: 'Connection', title: '省心省钱', desc: '满299包邮，省心省事', mark: '省' },
+  { icon: 'User', title: '专属客服', desc: '一对一专属客服跟单', mark: '' },
+  { icon: 'TrendCharts', title: '专业运营', desc: '专业的运营推广团队', mark: '' },
+  { icon: 'Box', title: '智能仓储', desc: '高效智能的仓储管理', mark: '' },
+  { icon: 'Connection', title: '资源整合', desc: '线上线下全面整合资源', mark: '' },
+  { icon: 'DataBoard', title: '数据营销', desc: '大数据分析及营销服务', mark: '' },
 ]
 
 const processSteps = [
@@ -128,7 +132,7 @@ const processSteps = [
 const contacts = [
   { icon: 'User', label: '联系人', value: '黄先生' },
   { icon: 'Phone', label: '联系电话', value: '13692180318' },
-  { icon: 'Message', label: '电子邮箱', value: 'partner@example.com' },
+  { icon: 'Message', label: '电子邮箱', value: 'harris.huang@oneyac.com' },
   { icon: 'ChatDotSquare', label: '企业QQ', value: '444849432' },
 ]
 
@@ -253,12 +257,12 @@ function resetForm() {
 .advantages-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 20px;
 }
 
 .advantage-card {
   text-align: center;
-  padding: 32px 20px;
+  padding: 28px 16px;
   border: 1px solid #eee;
   border-radius: 8px;
   transition: all 0.3s;
@@ -271,29 +275,22 @@ function resetForm() {
 }
 
 .adv-icon {
-  width: 64px;
-  height: 64px;
-  line-height: 64px;
-  margin: 0 auto 16px;
+  width: 56px;
+  height: 56px;
+  line-height: 56px;
+  margin: 0 auto 14px;
   background: #fff0f0;
   color: var(--theme-color, #E60012);
-  border-radius: 16px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.advantage-card h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 8px;
-}
-
-.advantage-card p {
-  font-size: 13px;
-  color: #888;
-  line-height: 1.6;
+.adv-mark {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--theme-color, #E60012);
 }
 
 /* Process */

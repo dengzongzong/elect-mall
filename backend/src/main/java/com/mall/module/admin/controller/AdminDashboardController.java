@@ -25,7 +25,7 @@ public class AdminDashboardController {
      *
      * @return 统计数据
      */
-    @GetMapping("/stats")
+    @GetMapping({"/stats", ""})
     public Map<String, Object> stats() {
         return adminService.getDashboardStats();
     }

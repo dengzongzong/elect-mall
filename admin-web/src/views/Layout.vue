@@ -3,10 +3,7 @@
     <!-- 左侧侧边栏 -->
     <el-aside :width="sidebarCollapsed ? '64px' : '220px'" class="layout-aside">
       <div class="logo-area">
-        <span class="logo-text" :class="{ collapsed: sidebarCollapsed }">
-          <span class="logo-icon">E</span>
-          <span v-show="!sidebarCollapsed" class="logo-full">电子元器件商城</span>
-        </span>
+        <img src="/logo.jpg" alt="得捷" class="logo-img" :class="{ collapsed: sidebarCollapsed }" />
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -203,40 +200,17 @@ function handleCommand(command) {
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid #2a2b2c;
-}
-
-.logo-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #E60012;
-  font-size: 16px;
-  font-weight: bold;
-  white-space: nowrap;
   overflow: hidden;
 }
 
-.logo-text.collapsed {
-  justify-content: center;
-}
-
-.logo-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
+.logo-img {
   height: 32px;
-  background-color: #E60012;
-  color: #fff;
-  border-radius: 6px;
-  font-size: 18px;
-  font-weight: bold;
-  flex-shrink: 0;
+  width: auto;
+  transition: all 0.3s ease;
 }
 
-.logo-full {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.logo-img.collapsed {
+  height: 24px;
 }
 
 .sidebar-menu {

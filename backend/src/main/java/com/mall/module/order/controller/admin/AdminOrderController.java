@@ -22,7 +22,28 @@ public class AdminOrderController {
     private OrderService orderService;
 
     /**
-     * 订单分页列表
+     * 订单分页列表（GET - 前端使用）
+     *
+     * @param page 页码
+     * @param size 每页条数
+     * @param status 订单状态
+     * @param keyword 搜索关键词
+     * @return 分页结果
+     */
+    @GetMapping("/page")
+    public IPage<Order> pageGet(@RequestParam(defaultValue = "1") int page,
+                                @RequestParam(defaultValue = "10") int size,
+                                @RequestParam(required = false) String status,
+                                @RequestParam(required = false) String keyword) {
+        Page<Order> pageParam = new Page<>(page, size);
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        if (status != null) params.put("status", status);
+        if (keyword != null) params.put("keyword", keyword);
+        return orderService.adminPage(pageParam, params);
+    }
+
+    /**
+     * 订单分页列表（POST）
      *
      * @param params 查询参数（page, size, status, keyword）
      * @return 分页结果

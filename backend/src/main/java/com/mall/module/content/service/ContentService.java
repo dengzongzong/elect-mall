@@ -90,6 +90,13 @@ public interface ContentService {
      */
     void saveCooperateBrand(CooperateBrand brand);
 
+    /**
+     * 删除合作品牌（逻辑删除）
+     *
+     * @param id 合作品牌ID
+     */
+    void deleteCooperateBrand(Long id);
+
     // ========== 合作伙伴申请管理 ==========
 
     /**

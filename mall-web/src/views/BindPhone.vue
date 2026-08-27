@@ -2,8 +2,7 @@
   <div class="bind-page">
     <div class="bind-header">
       <router-link to="/" class="bind-logo">
-        <span class="logo-icon">EC</span>
-        <span class="logo-text">电子元器件商城</span>
+        <img src="/logo.jpg" alt="得捷" class="logo-img" />
       </router-link>
     </div>
     <div class="bind-body">
@@ -133,27 +132,12 @@ onUnmounted(() => {
 .bind-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
   text-decoration: none;
 }
 
-.logo-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  background: var(--theme-color);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  border-radius: 6px;
-}
-
-.logo-text {
-  font-size: 20px;
-  font-weight: 700;
-  color: #333;
+.logo-img {
+  height: 36px;
+  width: auto;
 }
 
 .bind-body {

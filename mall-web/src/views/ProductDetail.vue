@@ -6,7 +6,7 @@
         <el-breadcrumb separator="/">
           <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
           <el-breadcrumb-item :to="{ path: `/category/1` }">MCU微控制器</el-breadcrumb-item>
-          <el-breadcrumb-item>STM32F103C8T6</el-breadcrumb-item>
+          <el-breadcrumb-item>{{ product?.name || product?.partNo || '加载中...' }}</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
       <div v-if="loading" class="loading-area">
@@ -19,17 +19,18 @@
         <!-- 产品图片 -->
         <div class="product-gallery">
           <div class="main-image">
-            <el-icon class="product-img-icon"><Cpu /></el-icon>
-          </div>
-          <div class="thumb-list">
-            <div class="thumb-item active"><el-icon><Cpu /></el-icon></div>
-            <div class="thumb-item"><el-icon><Cpu /></el-icon></div>
-            <div class="thumb-item"><el-icon><Cpu /></el-icon></div>
-            <div class="thumb-item"><el-icon><Cpu /></el-icon></div>
+            <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="main-img" />
+            <el-icon v-else class="product-img-icon"><Cpu /></el-icon>
           </div>
         </div>
         <!-- 产品信息 -->
         <div class="product-info">
+          <div class="product-brand-info">
+            <div class="p-brand-logo" v-if="product.brandLogo">
+              <img :src="product.brandLogo" :alt="product.brandName" />
+            </div>
+            <span class="p-brand-tag" v-if="product.brandName">{{ product.brandName }}</span>
+          </div>
           <h2 class="product-title">{{ product.name || product.partNo }}</h2>
           <p class="product-desc">{{ product.description || '' }}</p>
           <div class="price-section">
@@ -37,19 +38,15 @@
               <span class="label">零售价：</span>
               <span class="price">￥{{ product.price }}</span>
             </div>
-            <div class="price-row" v-if="product.bulkPrice">
-              <span class="label">批量价：</span>
-              <span class="bulk-price">￥{{ product.bulkPrice }}</span>
-            </div>
           </div>
           <div class="info-section">
             <div class="info-row">
               <span class="label">品牌：</span>
               <span class="value">{{ product.brandName || '通用' }}</span>
             </div>
-            <div class="info-row" v-if="product.packageType">
-              <span class="label">封装：</span>
-              <span class="value">{{ product.packageType }}</span>
+            <div class="info-row" v-if="product.partNo">
+              <span class="label">型号：</span>
+              <span class="value">{{ product.partNo }}</span>
             </div>
             <div class="info-row">
               <span class="label">库存：</span>
@@ -67,8 +64,7 @@
             </div>
             <div class="action-btns">
               <el-button type="danger" size="large" @click="handleAddCart">加入购物车</el-button>
-              <el-button type="danger" size="large" plain @click="$router.push('/checkout')">立即购买</el-button>
-              <el-button size="large" plain @click="$router.push('/inquiry')">我要询价</el-button>
+              <el-button size="large" @click="$router.push('/inquiry')">我要询价</el-button>
             </div>
           </div>
         </div>
@@ -120,6 +116,7 @@ import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
 import { getProductDetail } from '../api/product'
+import { getBrands } from '../api/product'
 import { addToCart } from '../api/cart'
 
 const route = useRoute()
@@ -128,15 +125,32 @@ const quantity = ref(1)
 const activeTab = ref('desc')
 const product = ref(null)
 const loading = ref(true)
+const brandMap = ref({})
 
 async function fetchProduct() {
   try {
-    const res = await getProductDetail(route.params.id)
-    if (res.data) {
-      product.value = res.data
-    } else if (res.success !== false) {
-      product.value = res
+    const [detailRes, brandRes] = await Promise.all([
+      getProductDetail(route.params.id),
+      getBrands().catch(() => ({ data: [] })),
+    ])
+    let data = null
+    if (detailRes.data) {
+      data = detailRes.data
+    } else if (detailRes.success !== false) {
+      data = detailRes
     }
+    const brands = brandRes.data || brandRes || []
+    const map = {}
+    for (const b of brands) {
+      map[b.id] = b
+    }
+    brandMap.value = map
+    if (data) {
+      const brand = map[data.brandId] || {}
+      data.brandName = brand.name || ''
+      data.brandLogo = brand.logo || ''
+    }
+    product.value = data
   } catch (e) {
     ElMessage.error('获取商品详情失败')
   } finally {
@@ -204,8 +218,14 @@ onMounted(() => {
   justify-content: center;
   background: #fafafa;
   border-radius: 8px;
-  margin-bottom: 12px;
   border: 1px solid #eee;
+  overflow: hidden;
+}
+
+.main-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .product-img-icon {
@@ -213,35 +233,35 @@ onMounted(() => {
   color: #ddd;
 }
 
-.thumb-list {
-  display: flex;
-  gap: 10px;
-}
-
-.thumb-item {
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid #eee;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.thumb-item.active,
-.thumb-item:hover {
-  border-color: var(--theme-color);
-}
-
-.thumb-item .el-icon {
-  font-size: 28px;
-  color: #ccc;
-}
-
 .product-info {
   flex: 1;
+}
+
+.product-brand-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.p-brand-logo {
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.p-brand-logo img {
+  max-height: 100%;
+  max-width: 100px;
+  object-fit: contain;
+}
+
+.p-brand-tag {
+  font-size: 12px;
+  color: #999;
+  background: #f5f5f5;
+  padding: 2px 10px;
+  border-radius: 4px;
 }
 
 .product-title {

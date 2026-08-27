@@ -6,14 +6,16 @@
         <el-breadcrumb separator="/">
           <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
           <el-breadcrumb-item :to="{ path: '/brand' }">品牌专区</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ brandName }}</el-breadcrumb-item>
+          <el-breadcrumb-item>{{ brand?.name || '品牌详情' }}</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
       <div class="brand-header">
-        <div class="brand-logo-large">{{ brandName.charAt(0) }}</div>
+        <div class="brand-logo-wrap">
+          <img :src="brand?.logo" :alt="brand?.name" class="brand-logo-img" />
+        </div>
         <div class="brand-info">
-          <h2>{{ brandName }}</h2>
-          <p>浏览该品牌下的所有产品</p>
+          <h2>{{ brand?.name }}</h2>
+          <p class="brand-desc">{{ brand?.description || '浏览该品牌下的所有产品' }}</p>
         </div>
       </div>
       <div class="product-grid">
@@ -21,13 +23,14 @@
           <div class="p-img"><el-icon><Cpu /></el-icon></div>
           <div class="p-info">
             <h4>{{ p.name }}</h4>
-            <p class="p-model">{{ p.model }}</p>
-            <p class="p-price">￥{{ p.price }}</p>
+            <p class="p-model">{{ p.partNo }}</p>
+            <p class="p-price" v-if="p.price">￥{{ p.price }}</p>
           </div>
         </div>
       </div>
-      <div class="pagination-wrap">
-        <el-pagination background layout="prev, pager, next" :total="60" />
+      <div v-if="products.length === 0" class="empty-state">
+        <el-icon><FolderDeleted /></el-icon>
+        <p>该品牌暂无商品</p>
       </div>
     </div>
     <MainFooter />
@@ -35,31 +38,32 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
+import { getBrands, getBrandProducts } from '../api/product'
 
 const route = useRoute()
+const brand = ref(null)
+const products = ref([])
 
-const brandMap = {
-  1: 'ST意法半导体', 2: 'TI德州仪器', 3: 'NXP恩智浦', 4: 'Microchip',
-  5: 'Infineon英飞凌', 6: 'ADI亚德诺', 7: 'Maxim美信', 8: 'ON安森美',
-  9: 'Renesas瑞萨', 10: 'NVIDIA英伟达', 11: 'Xilinx赛灵思', 12: 'Broadcom博通',
-}
-
-const brandName = computed(() => brandMap[route.params.id] || '品牌')
-
-const products = ref([
-  { id: 101, name: 'STM32F103C8T6', model: 'ARM Cortex-M3', price: 8.50 },
-  { id: 102, name: 'STM32F407VGT6', model: 'ARM Cortex-M4', price: 35.00 },
-  { id: 103, name: 'STM32H743XIH6', model: 'ARM Cortex-M7', price: 98.00 },
-  { id: 104, name: 'STM32G030F6P6', model: 'ARM Cortex-M0+', price: 3.20 },
-  { id: 105, name: 'STM32L151C8T6', model: 'ARM Cortex-M3', price: 12.50 },
-  { id: 106, name: 'STM32F030F4P6', model: 'ARM Cortex-M0', price: 2.80 },
-  { id: 107, name: 'STM32F746NGH6', model: 'ARM Cortex-M7', price: 65.00 },
-  { id: 108, name: 'STM32G474RET6', model: 'ARM Cortex-M4', price: 28.00 },
-])
+onMounted(async () => {
+  const brandId = route.params.id
+  try {
+    const [brandRes, productRes] = await Promise.all([
+      getBrands(),
+      getBrandProducts(brandId).catch(() => null)
+    ])
+    const brandList = brandRes.data || brandRes || []
+    brand.value = brandList.find(b => b.id == brandId) || null
+    if (productRes) {
+      products.value = productRes.data || productRes || []
+    }
+  } catch (e) {
+    console.error('获取品牌数据失败', e)
+  }
+})
 </script>
 
 <style scoped>
@@ -81,51 +85,57 @@ const products = ref([
 .brand-header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 30px;
+  gap: 20px;
+  padding: 20px;
   background: #fff;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
-.brand-logo-large {
+.brand-logo-wrap {
   width: 80px;
-  height: 80px;
-  line-height: 80px;
-  text-align: center;
-  background: var(--theme-color-light);
-  color: var(--theme-color);
-  font-size: 32px;
-  font-weight: 700;
-  border-radius: 50%;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.brand-logo-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .brand-info h2 {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: #333;
   margin-bottom: 4px;
 }
 
-.brand-info p {
-  font-size: 14px;
-  color: #999;
+.brand-desc {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.6;
 }
 
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 12px;
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
+  padding: 16px;
   margin-bottom: 20px;
 }
 
 .product-card {
   border: 1px solid #eee;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s;
@@ -150,11 +160,11 @@ const products = ref([
 }
 
 .p-info {
-  padding: 12px;
+  padding: 10px;
 }
 
 .p-info h4 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #333;
   margin-bottom: 4px;
@@ -163,18 +173,25 @@ const products = ref([
 .p-model {
   font-size: 12px;
   color: #999;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .p-price {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--theme-color);
 }
 
-.pagination-wrap {
-  display: flex;
-  justify-content: center;
-  padding-bottom: 40px;
+.empty-state {
+  text-align: center;
+  padding: 80px 0;
+  color: #ccc;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.empty-state .el-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
 }
 </style>

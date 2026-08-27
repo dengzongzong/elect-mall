@@ -30,7 +30,7 @@
         <div class="banner-wrapper">
           <!-- 左侧轮播 -->
           <div class="banner-carousel">
-            <el-carousel :interval="4000" height="400px" indicator-position="inside">
+            <el-carousel :interval="4000" height="400px" indicator-position="none">
               <el-carousel-item v-for="(banner, idx) in banners" :key="idx">
                 <div class="banner-slide" :style="{ background: banner.bg }">
                   <div class="banner-content">
@@ -86,35 +86,44 @@
           <router-link to="/brand" class="more-link">查看全部 <el-icon><ArrowRight /></el-icon></router-link>
         </div>
         <div class="brand-grid">
-          <div class="brand-item" v-for="brand in brands" :key="brand.name" @click="$router.push(`/brand/${brand.id}`)">
-            <div class="brand-logo-placeholder">{{ brand.name }}</div>
+          <div class="brand-item" v-for="brand in brands" :key="brand.id" @click="$router.push(`/brand/${brand.id}`)">
+            <img v-if="brand.logo" :src="brand.logo" :alt="brand.name" class="brand-logo" @error="e => e.target.style.display='none'" />
+            <span v-else class="brand-logo-text">{{ brand.name }}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 热门产品 -->
-    <div class="hot-products-section">
+    <!-- 特色产品 -->
+    <div class="featured-products-section">
       <div class="container">
         <div class="section-header">
-          <h3>热门产品</h3>
+          <h3>特色产品</h3>
           <router-link to="/category/0" class="more-link">查看更多 <el-icon><ArrowRight /></el-icon></router-link>
         </div>
-        <div class="product-grid">
-          <div class="product-card" v-for="(product, idx) in hotProducts" :key="idx" @click="$router.push(`/product/${product.id}`)">
-            <div class="product-img">
-              <el-icon class="product-img-icon"><Cpu /></el-icon>
-            </div>
-            <div class="product-info">
-              <h4 class="product-name">{{ product.name }}</h4>
-              <p class="product-model">{{ product.model }}</p>
-              <div class="product-price">
-                <span class="price">￥{{ product.price }}</span>
-                <span class="stock">库存: {{ product.stock }}</span>
+        <div class="featured-product-grid">
+          <div class="fp-card" v-for="product in featuredProducts" :key="product.id" @click="$router.push(`/product/${product.id}`)">
+            <div class="fp-brand">
+              <div class="fp-brand-logo">
+                <img :src="getBrandLogo(product.brandId)" :alt="getBrandName(product.brandId)" @error="e => e.target.style.display='none'" />
               </div>
-              <el-button type="danger" size="small" class="add-cart-btn" @click.stop="handleAddToCart(product)">加入购物车</el-button>
+              <span class="fp-brand-tag">{{ getBrandName(product.brandId) }}</span>
+            </div>
+            <h4 class="fp-title">{{ product.name }}</h4>
+            <div class="fp-img">
+              <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" @error="e => e.target.style.display='none'" />
+              <el-icon v-else class="fp-img-default"><Cpu /></el-icon>
+            </div>
+            <div class="fp-features">
+              <div class="fp-feature" v-for="(feature, fi) in getFeatures(product)" :key="fi">
+                <span class="fp-dot"></span>
+                <span>{{ feature }}</span>
+              </div>
             </div>
           </div>
+        </div>
+        <div class="fp-pagination">
+          <span class="fp-dot-page" v-for="p in 3" :key="p" :class="{ active: p === 1 }"></span>
         </div>
       </div>
     </div>
@@ -139,20 +148,24 @@
     <div class="news-section">
       <div class="container">
         <div class="section-header">
-          <h3>新闻资讯</h3>
+          <h3>新品资讯</h3>
           <router-link to="/news" class="more-link">更多资讯 <el-icon><ArrowRight /></el-icon></router-link>
         </div>
-        <div class="news-list">
-          <div class="news-item" v-for="news in newsList" :key="news.id" @click="$router.push(`/news/${news.id}`)">
-            <div class="news-date">
-              <span class="day">{{ news.day }}</span>
-              <span class="month">{{ news.month }}</span>
+        <div class="news-grid">
+          <div class="news-card" v-for="news in newsList" :key="news.id" @click="$router.push(`/news/${news.id}`)">
+            <div class="news-card-img">
+              <img :src="news.image" :alt="news.title" @error="e => e.target.style.display='none'" />
+              <div class="news-card-date">{{ news.day }}</div>
             </div>
-            <div class="news-content">
+            <div class="news-card-body">
               <h4>{{ news.title }}</h4>
-              <p>{{ news.summary }}</p>
+              <div class="news-card-meta">
+                <span class="news-card-time">{{ news.month }}</span>
+                <span class="news-card-views">
+                  <el-icon><View /></el-icon> {{ news.views }}
+                </span>
+              </div>
             </div>
-            <el-icon class="news-arrow"><ArrowRight /></el-icon>
           </div>
         </div>
       </div>
@@ -163,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
@@ -179,6 +192,40 @@ const brands = ref([])
 const hotProducts = ref([])
 const coopBrands = ref([])
 const newsList = ref([])
+
+const brandMap = computed(() => {
+  const map = {}
+  for (const b of brands.value) {
+    map[b.id] = b
+  }
+  return map
+})
+
+const featuredProducts = computed(() => {
+  return hotProducts.value.slice(0, 4)
+})
+
+function getBrandLogo(brandId) {
+  const b = brandMap.value[brandId]
+  return b ? b.logo : ''
+}
+
+function getBrandName(brandId) {
+  const b = brandMap.value[brandId]
+  return b ? b.name : ''
+}
+
+function getFeatures(product) {
+  const desc = product.description || ''
+  const lines = desc.split(/\n|，|,/).filter(l => l.trim().length > 6)
+  if (lines.length >= 3) return lines.slice(0, 4)
+  return [
+    `型号：${product.partNo || ''}`,
+    `库存：${product.stock || 0}`,
+    `封装：${product.unit || 'SMD'}`,
+    `品牌：${getBrandName(product.brandId)}`
+  ]
+}
 
 const banners = [
   { title: '电子元器件一站式采购', subtitle: '海量型号现货供应，正品保障', bg: 'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)' },
@@ -232,7 +279,8 @@ async function fetchHomeData() {
       newsList.value = newsRes.value.data.map(n => ({
         id: n.id,
         title: n.title,
-        summary: n.summary || '',
+        image: n.image || '',
+        views: n.likeCount || 0,
         day: n.createdAt ? new Date(n.createdAt).getDate().toString().padStart(2, '0') : '',
         month: n.createdAt ? new Date(n.createdAt).getFullYear() + '-' + String(new Date(n.createdAt).getMonth() + 1).padStart(2, '0') : '',
       }))
@@ -593,6 +641,7 @@ function handleAddToCart(product) {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s;
+  padding: 8px;
 }
 
 .brand-item:hover {
@@ -600,98 +649,163 @@ function handleAddToCart(product) {
   box-shadow: 0 4px 12px rgba(230, 0, 18, 0.1);
 }
 
-.brand-logo-placeholder {
-  font-size: 15px;
+.brand-logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.brand-logo-text {
+  font-size: 14px;
   font-weight: 600;
   color: #666;
   transition: color 0.3s;
+  text-align: center;
 }
 
-.brand-item:hover .brand-logo-placeholder {
+.brand-item:hover .brand-logo-text {
   color: var(--theme-color);
 }
 
-/* 热门产品 */
-.hot-products-section {
+/* 特色产品 */
+.featured-products-section {
   background: #fff;
   padding: 40px 0;
   margin-top: 20px;
 }
 
-.product-grid {
+.featured-product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
 
-.product-card {
-  background: #fff;
+.fp-card {
   border: 1px solid #eee;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 
-.product-card:hover {
+.fp-card:hover {
   border-color: var(--theme-color);
-  box-shadow: 0 4px 16px rgba(230, 0, 18, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
 }
 
-.product-img {
-  height: 160px;
+.fp-brand {
+  padding: 16px 16px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fp-brand-logo {
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.fp-brand-logo img {
+  max-height: 100%;
+  max-width: 80px;
+  object-fit: contain;
+}
+
+.fp-brand-tag {
+  font-size: 11px;
+  color: #999;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.fp-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  padding: 4px 16px 12px;
+  line-height: 1.4;
+}
+
+.fp-img {
+  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #fafafa;
+  margin: 0 16px;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.product-img-icon {
-  font-size: 48px;
+.fp-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.fp-card:hover .fp-img img {
+  transform: scale(1.05);
+}
+
+.fp-img-default {
+  font-size: 40px;
   color: #ddd;
 }
 
-.product-info {
-  padding: 14px;
-}
-
-.product-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.product-model {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 8px;
-}
-
-.product-price {
+.fp-features {
+  padding: 14px 16px 16px;
+  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.price {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--theme-color);
-}
-
-.stock {
+.fp-feature {
   font-size: 12px;
-  color: #999;
+  color: #666;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
-.add-cart-btn {
-  width: 100%;
+.fp-dot {
+  width: 4px;
+  height: 4px;
+  background: #ccc;
+  border-radius: 50%;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+.fp-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.fp-dot-page {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ddd;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fp-dot-page.active {
+  background: var(--theme-color);
+  width: 24px;
+  border-radius: 4px;
 }
 
 /* 合作品牌 */
@@ -746,82 +860,99 @@ function handleAddToCart(product) {
   margin-bottom: 20px;
 }
 
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
 }
 
-.news-item {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid #f5f5f5;
+.news-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  background: #fff;
 }
 
-.news-item:last-child {
-  border-bottom: none;
+.news-card:hover {
+  border-color: var(--theme-color);
+  box-shadow: 0 4px 16px rgba(230, 0, 18, 0.08);
+  transform: translateY(-2px);
 }
 
-.news-item:hover {
-  padding-left: 10px;
+.news-card-img {
+  position: relative;
+  height: 130px;
+  overflow: hidden;
+  background: #fafafa;
 }
 
-.news-date {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 60px;
+.news-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
 }
 
-.day {
-  font-size: 28px;
+.news-card:hover .news-card-img img {
+  transform: scale(1.05);
+}
+
+.news-card-date {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--theme-color);
+  color: #fff;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--theme-color);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
   line-height: 1.2;
 }
 
-.month {
+.news-card-body {
+  padding: 12px;
+}
+
+.news-card-body h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 12px;
   color: #999;
 }
 
-.news-content {
-  flex: 1;
+.news-card-time {
+  color: #bbb;
 }
 
-.news-content h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 6px;
-  transition: color 0.2s;
+.news-card-views {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #bbb;
 }
 
-.news-item:hover .news-content h4 {
-  color: var(--theme-color);
-}
-
-.news-content p {
-  font-size: 13px;
-  color: #999;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.news-arrow {
-  color: #ccc;
-  font-size: 16px;
-  transition: color 0.2s;
-}
-
-.news-item:hover .news-arrow {
-  color: var(--theme-color);
+.news-card-views .el-icon {
+  font-size: 12px;
 }
 
 /* 响应式：小屏幕隐藏右侧广告 */

@@ -25,7 +25,7 @@
             </div>
           </div>
           <div class="service-item">
-            <el-icon class="service-icon"><Refund /></el-icon>
+            <el-icon class="service-icon"><CircleCheck /></el-icon>
             <div class="service-info">
               <h4>无忧售后</h4>
               <p>7天退换货保障</p>

@@ -38,8 +38,7 @@
       <div class="container">
         <div class="logo-area">
           <router-link to="/" class="logo">
-            <span class="logo-icon">EC</span>
-            <span class="logo-text">电子元器件商城</span>
+            <img src="/logo.jpg" alt="得捷" class="logo-img" />
           </router-link>
         </div>
         <div class="search-area">
@@ -244,29 +243,12 @@ onMounted(() => {
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
   text-decoration: none;
 }
 
-.logo-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--theme-color);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
-  border-radius: 8px;
-  letter-spacing: 1px;
-}
-
-.logo-text {
-  font-size: 22px;
-  font-weight: 700;
-  color: #333;
-  letter-spacing: 2px;
+.logo-img {
+  height: 40px;
+  width: auto;
 }
 
 .search-area {

@@ -1,10 +1,12 @@
 package com.mall.module.bom.controller.admin;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mall.module.bom.entity.BomItem;
 import com.mall.module.bom.entity.BomRecord;
+import com.mall.module.bom.mapper.BomRecordMapper;
 import com.mall.module.bom.service.BomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -24,18 +26,41 @@ public class AdminBomController {
     @Autowired
     private BomService bomService;
 
+    @Autowired
+    private BomRecordMapper bomRecordMapper;
+
     /**
      * BOM清单分页列表
      *
      * @param params 查询参数（page, size, status）
      * @return 分页结果
      */
-    @GetMapping("/page")
+    @GetMapping({"/page", "/list"})
     public IPage<BomRecord> page(@RequestParam Map<String, Object> params) {
         int page = params.get("page") != null ? Integer.parseInt(params.get("page").toString()) : 1;
         int size = params.get("size") != null ? Integer.parseInt(params.get("size").toString()) : 10;
         Page<BomRecord> pageParam = new Page<>(page, size);
         return bomService.adminPage(pageParam, params);
+    }
+
+    /**
+     * 删除BOM清单（逻辑删除）
+     *
+     * @param body 请求参数（id）
+     * @return 操作结果
+     */
+    @DeleteMapping("/delete")
+    public Map<String, Object> delete(@RequestBody Map<String, Object> body) {
+        Long id = Long.valueOf(body.get("id").toString());
+        BomRecord record = new BomRecord();
+        record.setId(id);
+        record.setDeleted(1);
+        bomRecordMapper.updateById(record);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("message", "删除成功");
+        return result;
     }
 
     /**
