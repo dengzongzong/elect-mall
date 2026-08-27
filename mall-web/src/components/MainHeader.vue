@@ -113,10 +113,11 @@
           <router-link to="/" class="nav-link" :class="{ active: $route.path === '/' }">首页</router-link>
           <router-link to="/brand" class="nav-link" :class="{ active: $route.path.startsWith('/brand') }">品牌专区</router-link>
           <router-link to="/bom" class="nav-link" :class="{ active: $route.path === '/bom' }">BOM配单</router-link>
+          <router-link to="/inquiry" class="nav-link" :class="{ active: $route.path === '/inquiry' }">商品询价</router-link>
           <router-link to="/datasheet" class="nav-link" :class="{ active: $route.path === '/datasheet' }">数据手册</router-link>
           <router-link to="/news" class="nav-link" :class="{ active: $route.path.startsWith('/news') }">资讯中心</router-link>
           <router-link to="/cooperate" class="nav-link" :class="{ active: $route.path === '/cooperate' }">合作品牌</router-link>
-          <router-link to="/partner" class="nav-link" :class="{ active: $route.path === '/partner' }">合作伙伴</router-link>
+          <router-link to="/partner" class="nav-link" :class="{ active: $route.path === '/partner' }">供应商合作</router-link>
         </div>
       </div>
     </div>
