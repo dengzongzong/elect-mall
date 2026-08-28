@@ -43,6 +43,13 @@ export function getBrands() {
 }
 
 /**
+ * 获取分类详情（含富文本描述）
+ */
+export function getCategoryDetail(id) {
+  return request.get(`/category/detail/${id}`)
+}
+
+/**
  * 获取品牌商品
  */
 export function getBrandProducts(brandId, params) {

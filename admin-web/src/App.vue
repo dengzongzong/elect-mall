@@ -6,6 +6,31 @@
 </script>
 
 <style>
+/* 引入鸿蒙黑体 HarmonyOS Sans via CDN */
+@font-face {
+  font-family: 'HarmonyOS Sans';
+  src: url('https://cdn.jsdelivr.net/npm/@arietta-studio/webfont-harmony-sans-sc@1.0.3/fonts/HarmonyOS_Sans_SC_Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HarmonyOS Sans';
+  src: url('https://cdn.jsdelivr.net/npm/@arietta-studio/webfont-harmony-sans-sc@1.0.3/fonts/HarmonyOS_Sans_SC_Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'HarmonyOS Sans';
+  src: url('https://cdn.jsdelivr.net/npm/@arietta-studio/webfont-harmony-sans-sc@1.0.3/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -14,6 +39,6 @@
 
 html, body, #app {
   height: 100%;
-  font-family: 'Roboto', 'Noto Sans', 'PingFang SC', 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+  font-family: 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', Arial, Helvetica, sans-serif;
 }
 </style>

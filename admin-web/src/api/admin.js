@@ -181,17 +181,6 @@ export function saveSetting(data) {
 }
 
 /**
- * 上传文件
- */
-export function uploadFile(file) {
-  const formData = new FormData()
-  formData.append('file', file)
-  return request.post('/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
-
-/**
  * 获取 BOM 列表
  */
 export function getAdminBomList(params) {
@@ -227,6 +216,41 @@ export function saveCooperate(data) {
  */
 export function deleteCooperate(id) {
   return request.delete('/cooperate/delete', { data: { id } })
+}
+
+/**
+ * 获取轮播图列表
+ */
+export function getCarousels() {
+  return request.get('/adapter/carousel/list')
+}
+
+/**
+ * 保存轮播图
+ */
+export function saveCarousel(data) {
+  if (data.id) {
+    return request.put('/adapter/carousel/update', data)
+  }
+  return request.post('/adapter/carousel/add', data)
+}
+
+/**
+ * 删除轮播图
+ */
+export function deleteCarousel(id) {
+  return request.delete('/adapter/carousel/delete', { data: { id } })
+}
+
+/**
+ * 上传文件
+ */
+export function uploadFile(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/adapter/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 /**

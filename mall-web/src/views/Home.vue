@@ -6,32 +6,31 @@
     <div class="container main-area">
       <div class="content-layout">
         <!-- 分类侧边栏（含悬浮展开面板） -->
-        <div class="category-sidebar" @mouseleave="activeCat = null">
+        <div class="category-sidebar" @mouseleave="activeCat = null" @mousedown.prevent>
           <div class="category-list">
             <div class="category-item" v-for="cat in categories" :key="cat.id"
               @mouseenter="activeCat = cat.id"
               :class="{ active: activeCat === cat.id }"
+              @mousedown.prevent
             >
               <router-link :to="`/category/${cat.id}`" class="cat-link">
-                <el-icon><component :is="cat.icon" /></el-icon>
                 <span class="cat-name">{{ cat.name }}</span>
-                <el-icon class="arrow"><ArrowRight /></el-icon>
               </router-link>
             </div>
           </div>
           <!-- 悬浮展开面板 -->
           <transition name="fade">
-            <div class="category-panel" v-show="activeCat !== null && activePanel" @mouseenter="activeCat = activePanel.id" @mouseleave="activeCat = null">
+            <div class="category-panel" v-show="activeCat !== null && activePanel" @mouseenter="activeCat = activePanel.id" @mouseleave="activeCat = null" @mousedown.prevent>
               <div class="panel-inner" v-if="activePanel">
                 <div class="panel-header">
                   <h4>{{ activePanel.name }}</h4>
-                  <router-link :to="`/category/${activePanel.id}`" class="panel-all">查看全部 <el-icon><ArrowRight /></el-icon></router-link>
+                  <router-link :to="`/category/${activePanel.id}`" class="panel-all">查看全部</router-link>
                 </div>
                 <div class="panel-body">
                   <div class="panel-group" v-for="(sub, idx) in activePanel.subs" :key="idx">
                     <div class="group-name">{{ sub.name }}</div>
                     <div class="group-items" v-if="sub.items.length">
-                      <span class="group-item" v-for="item in sub.items" :key="item" @click="$router.push(`/category/${activePanel.id}?keyword=${item}`)">{{ item }}</span>
+                      <span class="group-item" v-for="item in sub.items" :key="item.id || item" @click="$router.push(`/category/detail/${item.id || item}`)" @mousedown.prevent>{{ item.name || item }}</span>
                     </div>
                   </div>
                   <div v-if="!activePanel.subs.length" class="panel-empty">暂无细分分类</div>
@@ -47,11 +46,11 @@
           <div class="banner-carousel">
             <el-carousel :interval="4000" height="400px" indicator-position="none">
               <el-carousel-item v-for="(banner, idx) in banners" :key="idx">
-                <div class="banner-slide" :style="{ background: banner.bg }">
+                <div class="banner-slide" :style="{ background: bannerColors[idx % bannerColors.length] }">
                   <div class="banner-content">
                     <h2>{{ banner.title }}</h2>
-                    <p>{{ banner.subtitle }}</p>
-                    <el-button type="danger" size="large" round>立即查看</el-button>
+                    <p>{{ banner.subtitle || banner.title }}</p>
+                    <el-button v-if="banner.link" type="danger" size="large" round @click="goLink(banner.link)">立即查看</el-button>
                   </div>
                 </div>
               </el-carousel-item>
@@ -173,7 +172,7 @@ import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
 import { getCategories, getBrands, getProducts } from '../api/product'
-import { getNewsList } from '../api/content'
+import { getNewsList, getCarousels } from '../api/content'
 
 const cartStore = useCartStore()
 const activeCat = ref(null)
@@ -248,12 +247,20 @@ function formatDate(dateStr) {
   return `${y}/${m}/${day}`
 }
 
-const banners = [
-  { title: '电子元器件一站式采购', subtitle: '海量型号现货供应，正品保障', bg: 'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)' },
-  { title: '新品上线 - 32位MCU', subtitle: 'STM32/GD32/AT32 系列特惠促销', bg: 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)' },
-  { title: 'BOM配单服务', subtitle: '上传BOM清单，快速报价，一站配齐', bg: 'linear-gradient(135deg, #389e0d 0%, #73d13d 100%)' },
-  { title: '品牌专区特惠', subtitle: '三星、村田、TDK、国巨等一线品牌直供', bg: 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)' },
-  { title: '新品首发 - 车规级器件', subtitle: 'AEC-Q100/200认证车规级元器件现货特卖', bg: 'linear-gradient(135deg, #c41d7f 0%, #ff85c0 100%)' },
+function goLink(url) {
+  window.open(url, '_blank')
+}
+
+const banners = ref([])
+const bannerColors = [
+  'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)',
+  'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)',
+  'linear-gradient(135deg, #389e0d 0%, #73d13d 100%)',
+  'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)',
+  'linear-gradient(135deg, #c41d7f 0%, #ff85c0 100%)',
+  'linear-gradient(135deg, #fa8c16 0%, #ffc53d 100%)',
+  'linear-gradient(135deg, #13c2c2 0%, #5cdbd3 100%)',
+  'linear-gradient(135deg, #2f54eb 0%, #85a5ff 100%)',
 ]
 
 const sideAds = [
@@ -272,11 +279,12 @@ const features = [
 
 async function fetchHomeData() {
   try {
-    const [catRes, brandRes, productRes, newsRes] = await Promise.allSettled([
+    const [catRes, brandRes, productRes, newsRes, carouselRes] = await Promise.allSettled([
       getCategories(),
       getBrands(),
       getProducts({ page: 1, size: 8, orderBy: 'created_at', orderDir: 'desc' }),
       getNewsList(),
+      getCarousels(),
     ])
 
     if (catRes.status === 'fulfilled' && catRes.value) {
@@ -300,6 +308,10 @@ async function fetchHomeData() {
         day: n.created_at ? new Date(n.created_at).getDate().toString().padStart(2, '0') : '',
         month: n.created_at ? new Date(n.created_at).getFullYear() + '-' + String(new Date(n.created_at).getMonth() + 1).padStart(2, '0') : '',
       }))
+    }
+
+    if (carouselRes.status === 'fulfilled' && carouselRes.value) {
+      banners.value = carouselRes.value
     }
   } catch (e) {
     // 静默忽略，组件使用空数据
@@ -357,6 +369,8 @@ function handleAddToCart(product) {
   height: 400px;
   overflow: visible;
   position: relative;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .category-list {
@@ -374,15 +388,9 @@ function handleAddToCart(product) {
   font-weight: 600;
 }
 
-.category-item.active .cat-link .arrow {
-  opacity: 1;
-  color: var(--theme-color);
-}
-
 .cat-link {
   display: flex;
   align-items: center;
-  gap: 8px;
   padding: 8px 16px;
   font-size: 13px;
   color: #333;
@@ -395,24 +403,8 @@ function handleAddToCart(product) {
   color: var(--theme-color);
 }
 
-.cat-link .el-icon {
-  font-size: 16px;
-  color: var(--theme-color);
-}
-
 .cat-name {
   flex: 1;
-}
-
-.cat-link .arrow {
-  font-size: 12px;
-  color: #ccc;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.cat-link:hover .arrow {
-  opacity: 1;
 }
 
 /* 分类悬浮展开面板 */
@@ -427,6 +419,8 @@ function handleAddToCart(product) {
   z-index: 50;
   max-height: 400px;
   overflow-y: auto;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .panel-inner {
@@ -452,9 +446,6 @@ function handleAddToCart(product) {
   font-size: 13px;
   color: var(--theme-color);
   text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .panel-all:hover {
@@ -968,5 +959,18 @@ function handleAddToCart(product) {
   .banner-ads {
     display: none;
   }
+}
+</style>
+
+<style>
+/* 全局：阻止分类侧边栏文字选中 */
+.category-sidebar,
+.category-sidebar *,
+.category-panel,
+.category-panel * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
 }
 </style>

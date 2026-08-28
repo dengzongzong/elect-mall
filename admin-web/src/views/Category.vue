@@ -32,10 +32,18 @@
             <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '禁用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column label="详情" width="80">
+          <template #default="{ row }">
+            <el-tag v-if="row.description" type="success" size="small">已编辑</el-tag>
+            <el-tag v-else type="info" size="small">无</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="420" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="success" link size="small" @click="handleAddSub(row)">新增子类</el-button>
+            <el-button type="warning" link size="small" @click="handleEditDescription(row)">编辑详情</el-button>
+            <el-button type="info" link size="small" @click="handlePreview(row)">预览</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -68,13 +76,84 @@
         <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 编辑详情对话框 -->
+    <el-dialog
+      v-model="descDialogVisible"
+      title="编辑分类详情"
+      width="860px"
+      :close-on-click-modal="false"
+      :before-close="beforeCloseDescDialog"
+    >
+      <el-form label-width="100px">
+        <el-form-item label="分类名称">
+          <el-tag>{{ descForm.name }}</el-tag>
+        </el-form-item>
+        <el-form-item label="分类详情">
+          <div class="desc-editor">
+            <QuillEditor
+              ref="quillRef"
+              v-model:content="descForm.description"
+              content-type="html"
+              :options="editorOptions"
+              class="rich-editor"
+              @focus="onEditorFocus"
+            />
+            <div class="desc-upload" v-if="showUpload">
+              <el-upload
+                action="/admin/adapter/upload"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                :on-success="handleImageUploadSuccess"
+              >
+                <el-button size="small">上传图片</el-button>
+                <span class="upload-hint">支持 JPG/PNG/GIF</span>
+              </el-upload>
+            </div>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="descDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSaveDescription">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 分类预览对话框 -->
+    <el-dialog
+      v-model="previewVisible"
+      :title="'预览：' + previewForm.name"
+      width="800px"
+      :close-on-click-modal="false"
+      top="40px"
+    >
+      <div class="preview-wrapper">
+        <div class="preview-breadcrumb">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item>全部产品分类</el-breadcrumb-item>
+            <el-breadcrumb-item v-if="previewParent">{{ previewParent.name }}</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ previewForm.name }}</el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+        <div class="preview-content" v-html="previewForm.description || '暂无详情内容'"></div>
+        <div class="preview-note" v-if="!previewForm.description">
+          <el-empty description="该分类尚未编辑详情内容" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="previewVisible = false">关闭</el-button>
+        <el-button type="primary" @click="handleEditDescription(previewForm._row)">编辑详情</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAdminCategories, saveCategory, deleteCategory } from '../api/admin'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -87,9 +166,53 @@ const form = ref({
   parentId: null,
   name: '',
   prefix: '',
+  description: '',
   sort: 0,
   status: 1
 })
+
+const descDialogVisible = ref(false)
+const descForm = ref({
+  id: null,
+  name: '',
+  description: ''
+})
+const quillRef = ref(null)
+const showUpload = ref(false)
+
+const editorOptions = {
+  modules: {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ color: [] }, { background: [] }],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      [{ align: [] }],
+      ['blockquote', 'code-block'],
+      [{ indent: '-1' }, { indent: '+1' }],
+      ['link', 'image'],
+      ['clean']
+    ]
+  },
+  placeholder: '请输入分类详情内容...'
+}
+
+function onEditorFocus() {
+  showUpload.value = false
+}
+
+function beforeCloseDescDialog() {
+  showUpload.value = false
+  descDialogVisible.value = false
+}
+
+const previewVisible = ref(false)
+const previewForm = ref({ name: '', description: '' })
+const previewParent = ref(null)
+
+const uploadHeaders = computed(() => ({
+  token: localStorage.getItem('admin_token') || ''
+}))
 
 const rules = {
   name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }]
@@ -130,6 +253,66 @@ function handleEdit(row) {
 
 function handleAddSub(row) {
   openDialog('新增子分类', { parentId: row.id, sort: 0 })
+}
+
+function handleEditDescription(row) {
+  descForm.value = {
+    id: row.id,
+    name: row.name,
+    description: row.description || ''
+  }
+  descDialogVisible.value = true
+}
+
+function handlePreview(row) {
+  previewForm.value = {
+    name: row.name,
+    description: row.description || '',
+    _row: row
+  }
+  // 查找父分类
+  const findParent = (id, list) => {
+    for (const item of list) {
+      if (item.id === id) return item
+      if (item.children) {
+        const found = findParent(id, item.children)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  previewParent.value = row.parent_id && row.parent_id !== '0'
+    ? findParent(row.parent_id, tableData.value)
+    : null
+  previewVisible.value = true
+}
+
+function handleImageUploadSuccess(res) {
+  if (res.data?.url) {
+    // Insert image into Quill editor at cursor position
+    const quill = quillRef.value?.getQuill()
+    if (quill) {
+      const imgTag = `<img src="${res.data.url}" alt="图片" style="max-width:100%;border:1px solid #eee;margin:10px 0;" />`
+      const range = quill.getSelection()
+      quill.clipboard.dangerouslyPasteHTML(range ? range.index : quill.getLength(), imgTag)
+    }
+    ElMessage.success('图片已插入')
+    showUpload.value = false
+  }
+}
+
+async function handleSaveDescription() {
+  saving.value = true
+  try {
+    await saveCategory(descForm.value)
+    ElMessage.success('保存成功')
+    descDialogVisible.value = false
+    await fetchCategories()
+  } catch (e) {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
 }
 
 async function handleSave() {
@@ -190,5 +373,90 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.desc-editor {
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rich-editor {
+  min-height: 350px;
+  background: #fff;
+}
+
+:deep(.quill) {
+  height: auto;
+}
+
+:deep(.quill .ql-container) {
+  min-height: 280px;
+  font-size: 14px;
+}
+
+:deep(.quill .ql-editor) {
+  min-height: 280px;
+}
+
+.desc-upload {
+  padding: 8px 12px;
+  border-bottom: 1px solid #dcdfe6;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
+}
+
+.preview-wrapper {
+  padding: 0;
+}
+
+.preview-breadcrumb {
+  padding: 12px 16px;
+  background: #f8f8f8;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.preview-content {
+  line-height: 1.8;
+  color: #333;
+  font-size: 14px;
+  min-height: 100px;
+}
+
+.preview-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 12px 0;
+}
+
+.preview-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.preview-content table th,
+.preview-content table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+}
+
+.preview-content table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+.preview-content p {
+  margin: 8px 0;
+}
+
+.preview-note {
+  padding: 40px 0;
 }
 </style>

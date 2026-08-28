@@ -219,16 +219,16 @@ $routes = [
         checkLogin(); $data = getInput();
         $name = $data['name'] ?? ''; if (empty($name)) error('分类名称不能为空');
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO category (name, parent_id, prefix, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([$name, $data['parentId'] ?? $data['parent_id'] ?? 0, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1]);
+        $stmt = $db->prepare("INSERT INTO category (name, description, parent_id, prefix, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$name, $data['description'] ?? '', $data['parentId'] ?? $data['parent_id'] ?? 0, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1]);
         success(['id' => $db->lastInsertId()], '保存成功');
     },
     'PUT category/update' => function() {
         checkLogin(); $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
-        $stmt = $db->prepare("UPDATE category SET name=?, parent_id=?, prefix=?, sort=?, status=? WHERE id=?");
-        $stmt->execute([$data['name'] ?? '', $data['parentId'] ?? $data['parent_id'] ?? 0, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1, $id]);
+        $stmt = $db->prepare("UPDATE category SET name=?, description=?, parent_id=?, prefix=?, sort=?, status=? WHERE id=?");
+        $stmt->execute([$data['name'] ?? '', $data['description'] ?? '', $data['parentId'] ?? $data['parent_id'] ?? 0, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1, $id]);
         success(null, '保存成功');
     },
     'DELETE category/delete' => function() {
@@ -255,6 +255,19 @@ $routes = [
             $delStmt->execute([$did]);
         }
         success(null, '删除成功，共删除 ' . count($idsToDelete) . ' 条');
+    },
+    // 分类详情公开API
+    'GET category/detail/{id}' => function($id) {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT * FROM category WHERE id = ?");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) error('分类不存在', 404);
+        if ($row) {
+            $row['id'] = (string)$row['id'];
+            $row['parent_id'] = (string)$row['parent_id'];
+        }
+        success($row);
     },
     'GET news/list' => function() {
         checkLogin();
@@ -514,9 +527,10 @@ $routes = [
                     $l2 = $map[$l2id];
                     $items = [];
                     foreach ($children[$l2id] ?? [] as $l3id) {
-                        $items[] = $map[$l3id]['name'];
+                        $l3 = $map[$l3id];
+                        $items[] = ['name' => $l3['name'], 'id' => (string)$l3['id']];
                     }
-                    $subs[] = ['name' => $l2['name'], 'items' => $items];
+                    $subs[] = ['name' => $l2['name'], 'id' => (string)$l2['id'], 'items' => $items];
                 }
                 $tree[] = [
                     'id' => $item['id'],
@@ -940,6 +954,73 @@ $routes = [
         $stmt->bindValue(2, $offset, PDO::PARAM_INT);
         $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+    },
+
+    // 轮播图管理
+    'GET carousel/list' => function() {
+        checkLogin();
+        $db = getDB();
+        $stmt = $db->query("SELECT * FROM carousel ORDER BY sort ASC, id DESC");
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    'GET carousel/public/list' => function() {
+        $db = getDB();
+        $stmt = $db->query("SELECT * FROM carousel WHERE status = 1 ORDER BY sort ASC, id DESC");
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    'POST carousel/add' => function() {
+        checkLogin();
+        $data = getInput();
+        $title = trim($data['title'] ?? '');
+        if (empty($title)) error('轮播图标题不能为空');
+        if (strlen($title) > 100) error('标题长度不能超过100个字符');
+        $imageUrl = trim($data['image_url'] ?? '');
+        if (empty($imageUrl)) error('图片URL不能为空，请上传图片或输入图片地址');
+        // 验证图片URL格式，防止空值和恶意注入
+        if (!preg_match('/^https?:\/\/.+/', $imageUrl)) {
+            error('图片URL格式不正确，必须以 http:// 或 https:// 开头');
+        }
+        $title = htmlspecialchars($title, ENT_QUOTES);
+        $link = trim($data['link'] ?? '');
+        if (!empty($link) && !preg_match('/^https?:\/\//', $link)) {
+            error('链接格式不正确，必须以 http:// 或 https:// 开头');
+        }
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO carousel (title, image_url, link, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$title, $imageUrl, $link, $data['sort'] ?? 0, $data['status'] ?? 1]);
+        success(['id' => $db->lastInsertId()], '保存成功');
+    },
+    'PUT carousel/update' => function() {
+        checkLogin();
+        $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $title = trim($data['title'] ?? '');
+        if (empty($title)) error('轮播图标题不能为空');
+        if (strlen($title) > 100) error('标题长度不能超过100个字符');
+        $imageUrl = trim($data['image_url'] ?? '');
+        if (empty($imageUrl)) error('图片URL不能为空，请上传图片或输入图片地址');
+        if (!preg_match('/^https?:\/\/.+/', $imageUrl)) {
+            error('图片URL格式不正确，必须以 http:// 或 https:// 开头');
+        }
+        $title = htmlspecialchars($title, ENT_QUOTES);
+        $link = trim($data['link'] ?? '');
+        if (!empty($link) && !preg_match('/^https?:\/\//', $link)) {
+            error('链接格式不正确，必须以 http:// 或 https:// 开头');
+        }
+        $db = getDB();
+        $stmt = $db->prepare("UPDATE carousel SET title=?, image_url=?, link=?, sort=?, status=?, updated_at=NOW() WHERE id=?");
+        $stmt->execute([$title, $imageUrl, $link, $data['sort'] ?? 0, $data['status'] ?? 1, $id]);
+        success(null, '保存成功');
+    },
+    'DELETE carousel/delete' => function() {
+        checkLogin();
+        $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("DELETE FROM carousel WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
 
     // 合作品牌

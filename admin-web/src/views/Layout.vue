@@ -80,6 +80,10 @@
           <el-icon><WarningFilled /></el-icon>
           <template #title>投诉反馈</template>
         </el-menu-item>
+        <el-menu-item index="/carousel">
+          <el-icon><Picture /></el-icon>
+          <template #title>轮播图管理</template>
+        </el-menu-item>
         <el-menu-item index="/setting">
           <el-icon><Setting /></el-icon>
           <template #title>系统设置</template>

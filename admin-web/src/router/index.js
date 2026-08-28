@@ -69,6 +69,12 @@ const routes = [
         meta: { title: '财务管理' }
       },
       {
+        path: 'carousel',
+        name: 'Carousel',
+        component: () => import('../views/Carousel.vue'),
+        meta: { title: '轮播图管理' }
+      },
+      {
         path: 'news',
         name: 'News',
         component: () => import('../views/News.vue'),

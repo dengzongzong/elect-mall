@@ -17,6 +17,13 @@ if (strpos($path, '/api/adapter/') === 0) {
     return true;
 }
 
+// 直接拦截 /api/category/ 路由
+if (strpos($path, '/api/category/') === 0) {
+    $_SERVER['REQUEST_URI'] = str_replace('/api/', '/api/adapter/', $_SERVER['REQUEST_URI']);
+    require __DIR__ . '/adapter.php';
+    return true;
+}
+
 // 拦截根路径，跳转到商城前端
 if ($path === '/' || $path === '') {
     header('Location: http://localhost:8080');

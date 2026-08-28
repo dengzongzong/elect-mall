@@ -48,3 +48,10 @@ export function getCooperateBrands() {
 export function submitPartnerApply(data) {
   return request.post('/partner/apply', data)
 }
+
+/**
+ * 获取轮播图列表
+ */
+export function getCarousels() {
+  return request.get('/carousel/public/list')
+}

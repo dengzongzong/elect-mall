@@ -91,13 +91,12 @@
     <!-- 主导航栏 -->
     <div class="header-nav">
       <div class="container">
-        <div class="nav-category" @mouseenter="showMegaMenu = true" @mouseleave="showMegaMenu = false">
+        <div class="nav-category" @mouseenter="onCategoryEnter" @mouseleave="onCategoryLeave" @mousedown.prevent>
           <span class="category-btn">
-            <el-icon><Grid /></el-icon>
             全部产品分类
           </span>
           <transition name="fade">
-            <div v-show="showMegaMenu" class="mega-menu" @mouseenter="showMegaMenu = true" @mouseleave="showMegaMenu = false">
+            <div v-show="showMegaMenu" class="mega-menu" @mouseenter="onMegaMenuEnter" @mouseleave="onMegaMenuLeave" @mousedown.prevent>
               <!-- 左侧：1级大类 -->
               <div class="mega-left">
                 <div class="mega-left-inner">
@@ -105,37 +104,49 @@
                     class="mega-l1-item"
                     v-for="cat in categories"
                     :key="cat.id"
-                    :class="{ active: activeCategoryId === cat.id }"
-                    @mouseenter="activeCategoryId = cat.id"
+                    :class="{ active: activeL1Id === cat.id }"
+                    @mouseenter="activeL1Id = cat.id"
                     @click="goToCategory(cat.id)"
+                    @mousedown.prevent
                   >
                     <span class="l1-name">{{ cat.name }}</span>
-                    <el-icon class="l1-arrow"><ArrowRight /></el-icon>
+                    <span v-if="cat.subs && cat.subs.length > 0" class="expand-arrow">></span>
                   </div>
                 </div>
               </div>
-              <!-- 中栏：2级品牌 + 3级细分 -->
-              <div class="mega-center" v-if="activeCategory">
-                <div class="mega-center-inner">
-                  <div class="mega-brand-group" v-for="(sub, idx) in activeCategory.subs" :key="idx">
-                    <div class="brand-name">{{ sub.name }}</div>
-                    <div class="brand-items" v-if="sub.items.length">
-                      <span
-                        class="brand-item"
-                        v-for="item in sub.items"
-                        :key="item"
-                        @click="goToCategory(activeCategory.id, item)"
-                      >{{ item }}</span>
-                    </div>
+              <!-- 二级：品牌列表 -->
+              <div v-if="activeL1" class="mega-level" :style="{ top: getLevel2Top() }">
+                <div class="mega-level-inner">
+                  <div
+                    class="mega-l2-item"
+                    v-for="sub in activeL1.subs"
+                    :key="sub.id"
+                    :class="{ active: activeL2Id === sub.id }"
+                    @mouseenter="activeL2Id = sub.id"
+                    @click="goToCategoryDetail(sub)"
+                    @mousedown.prevent
+                  >
+                    <span class="l2-name">{{ sub.name }}</span>
+                    <span v-if="sub.items && sub.items.length > 0" class="expand-arrow">></span>
                   </div>
-                  <div v-if="!activeCategory.subs.length" class="mega-empty">暂无细分分类</div>
-                  <div class="view-all">
-                    <router-link :to="`/category/${activeCategory.id}`" class="view-all-link">查看全部 <el-icon><ArrowRight /></el-icon></router-link>
+                </div>
+              </div>
+              <!-- 三级：产品细分 -->
+              <div v-if="activeL2 && activeL2.items && activeL2.items.length > 0" class="mega-level level3" :style="{ top: getLevel3Top() }">
+                <div class="mega-level-inner">
+                  <div
+                    class="mega-l3-item"
+                    v-for="item in activeL2.items"
+                    :key="item.id || item"
+                    @click="goToCategoryDetail(item)"
+                    @mousedown.prevent
+                  >
+                    {{ item.name || item }}
                   </div>
                 </div>
               </div>
               <!-- 右栏：品牌推荐 -->
-              <div class="mega-right">
+              <div class="mega-right" v-if="!activeL1">
                 <div class="mega-right-title">推荐品牌</div>
                 <div class="brand-grid">
                   <div class="brand-logo-item" v-for="brand in featuredBrands" :key="brand.id" @click="$router.push(`/brand/${brand.id}`)">
@@ -176,28 +187,89 @@ const cartStore = useCartStore()
 const categories = ref([])
 const featuredBrands = ref([])
 const showMegaMenu = ref(false)
-const activeCategoryId = ref(null)
+const activeL1Id = ref(null)
+const activeL2Id = ref(null)
 
-const activeCategory = computed(() => {
-  return categories.value.find(c => c.id === activeCategoryId.value) || null
+// 防抖工具函数
+function debounce(fn, delay) {
+  let timer = null
+  return function(...args) {
+    clearTimeout(timer)
+    timer = setTimeout(() => fn.apply(this, args), delay)
+  }
+}
+
+// 防抖关闭菜单：当鼠标离开菜单区域时延迟关闭，避免快速移入移出导致闪烁
+const debounceHideMenu = debounce(() => {
+  showMegaMenu.value = false
+}, 150)
+
+// 当前激活的一级分类
+const activeL1 = computed(() => {
+  return categories.value.find(c => c.id === activeL1Id.value) || null
 })
+
+// 当前激活的二级分类
+const activeL2 = computed(() => {
+  if (!activeL1.value) return null
+  return activeL1.value.subs.find(s => s.id === activeL2Id.value) || null
+})
+
+// 计算二级面板的top偏移（根据一级菜单项的位置）
+function getLevel2Top() {
+  if (!activeL1.value) return '0px'
+  const idx = categories.value.findIndex(c => c.id === activeL1Id.value)
+  return `${idx * 46}px`
+}
+
+// 计算三级面板的top偏移
+function getLevel3Top() {
+  if (!activeL2.value) return '0px'
+  if (!activeL1.value) return '0px'
+  const idx = activeL1.value.subs.findIndex(s => s.id === activeL2Id.value)
+  return `${idx * 46}px`
+}
+
+function onCategoryEnter() {
+  showMegaMenu.value = true
+}
+
+function onCategoryLeave() {
+  debounceHideMenu()
+}
+
+function onMegaMenuEnter() {
+  showMegaMenu.value = true
+}
+
+function onMegaMenuLeave() {
+  activeL1Id.value = null
+  activeL2Id.value = null
+  debounceHideMenu()
+}
 
 async function fetchCategories() {
   try {
     const res = await getCategories()
     categories.value = res || []
-    if (categories.value.length && !activeCategoryId.value) {
-      activeCategoryId.value = categories.value[0].id
-    }
   } catch (e) {
     categories.value = []
   }
 }
 
-function goToCategory(catId, subName) {
+function goToCategory(catId) {
   showMegaMenu.value = false
-  const query = subName ? { keyword: subName } : {}
-  router.push({ path: `/category/${catId}`, query })
+  activeL1Id.value = null
+  activeL2Id.value = null
+  router.push({ path: `/category/${catId}` })
+}
+
+function goToCategoryDetail(item) {
+  showMegaMenu.value = false
+  activeL1Id.value = null
+  activeL2Id.value = null
+  const itemId = typeof item === 'object' ? item.id : item
+  router.push(`/category/detail/${itemId}`)
 }
 
 function onBrandImgError(e) {
@@ -430,6 +502,8 @@ onMounted(() => {
   background: var(--theme-color);
   height: 44px;
   line-height: 44px;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .header-nav .container {
@@ -448,7 +522,6 @@ onMounted(() => {
 .category-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
   height: 44px;
   padding: 0 16px;
   background: var(--theme-color-hover);
@@ -464,20 +537,25 @@ onMounted(() => {
   position: absolute;
   top: 100%;
   left: 0;
-  width: 960px;
+  min-width: 220px;
+  width: auto;
+  min-height: 480px;
   background: #fff;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
   z-index: 200;
-  display: flex;
-  min-height: 460px;
   border-radius: 0 0 4px 4px;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
 }
 
 .mega-left {
   width: 220px;
   flex-shrink: 0;
-  border-right: 1px solid #eee;
-  overflow-y: auto;
   background: #fafafa;
 }
 
@@ -495,6 +573,10 @@ onMounted(() => {
   transition: all 0.15s;
   position: relative;
   border-left: 4px solid transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  height: 46px;
+  line-height: 26px;
 }
 
 .mega-l1-item:hover {
@@ -515,85 +597,86 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-.l1-arrow {
-  font-size: 14px;
+.expand-arrow {
+  font-size: 12px;
   color: #bbb;
-  flex-shrink: 0;
+  font-weight: bold;
+  line-height: 1;
 }
 
-.mega-l1-item.active .l1-arrow {
+.mega-l1-item.active .expand-arrow {
   color: var(--theme-color);
 }
 
-.mega-center {
-  width: 460px;
-  flex-shrink: 0;
-  border-right: 1px solid #eee;
-  overflow-y: auto;
+/* 二级和三级浮动面板 */
+.mega-level {
+  position: absolute;
+  left: 220px;
+  top: 0;
+  width: 220px;
+  min-height: 100%;
+  background: #fff;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
+  border-radius: 0 0 4px 4px;
+  z-index: 210;
 }
 
-.mega-center-inner {
-  padding: 20px;
+.mega-level.level3 {
+  left: calc(220px + 220px);
+  z-index: 220;
+}
+
+.mega-level-inner {
+  padding: 4px 0;
+}
+
+.mega-l2-item {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.mega-brand-group {
-  break-inside: avoid;
-}
-
-.brand-name {
+  align-items: center;
+  padding: 10px 16px 10px 20px;
+  cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.15s;
+  height: 46px;
+  line-height: 26px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.brand-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 16px;
+.mega-l2-item:hover {
+  background: #fafafa;
 }
 
-.brand-item {
+.mega-l2-item.active {
+  background: #fafafa;
+  color: var(--theme-color);
+  font-weight: 600;
+}
+
+.l2-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mega-l3-item {
+  display: block;
+  padding: 10px 16px 10px 20px;
+  cursor: pointer;
   font-size: 12px;
   color: #666;
-  cursor: pointer;
-  transition: color 0.15s;
-  white-space: nowrap;
-  line-height: 1.8;
+  transition: all 0.15s;
+  height: 46px;
+  line-height: 26px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.brand-item:hover {
+.mega-l3-item:hover {
+  background: #fafafa;
   color: var(--theme-color);
-}
-
-.view-all {
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.view-all-link {
-  font-size: 13px;
-  color: var(--theme-color);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.view-all-link:hover {
-  text-decoration: underline;
-}
-
-.mega-empty {
-  color: #bbb;
-  font-size: 13px;
-  padding: 20px 0;
 }
 
 .mega-right {
@@ -601,6 +684,7 @@ onMounted(() => {
   flex-shrink: 0;
   padding: 20px;
   overflow-y: auto;
+  border-left: 1px solid #eee;
 }
 
 .mega-right-title {
@@ -683,5 +767,18 @@ onMounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+</style>
+
+<style>
+/* 全局：阻止导航栏文字选中 */
+.header-nav,
+.header-nav *,
+.nav-category,
+.nav-category * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
 }
 </style>
