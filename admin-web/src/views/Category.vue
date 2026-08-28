@@ -182,17 +182,33 @@ const showUpload = ref(false)
 
 const editorOptions = {
   modules: {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ color: [] }, { background: [] }],
-      [{ list: 'ordered' }, { list: 'bullet' }],
-      [{ align: [] }],
-      ['blockquote', 'code-block'],
-      [{ indent: '-1' }, { indent: '+1' }],
-      ['link', 'image'],
-      ['clean']
-    ]
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ color: [] }, { background: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ align: [] }],
+        ['blockquote', 'code-block'],
+        [{ indent: '-1' }, { indent: '+1' }],
+        ['link', 'image'],
+        ['table'],
+        ['clean']
+      ],
+      handlers: {
+        table: function() {
+          const quill = this.quill
+          const range = quill.getSelection(true)
+          // 插入一个3x3表格
+          const tableHTML = '<table style="border-collapse:collapse;width:100%;margin:10px 0;" border="1" cellpadding="8" cellspacing="0"><tbody>'
+            + '<tr><td style="border:1px solid #ddd;padding:8px;background:#f5f5f5;font-weight:600;">标题1</td><td style="border:1px solid #ddd;padding:8px;background:#f5f5f5;font-weight:600;">标题2</td><td style="border:1px solid #ddd;padding:8px;background:#f5f5f5;font-weight:600;">标题3</td></tr>'
+            + '<tr><td style="border:1px solid #ddd;padding:8px;">内容1</td><td style="border:1px solid #ddd;padding:8px;">内容2</td><td style="border:1px solid #ddd;padding:8px;">内容3</td></tr>'
+            + '<tr><td style="border:1px solid #ddd;padding:8px;">内容4</td><td style="border:1px solid #ddd;padding:8px;">内容5</td><td style="border:1px solid #ddd;padding:8px;">内容6</td></tr>'
+            + '</tbody></table>'
+          quill.clipboard.dangerouslyPasteHTML(range.index, tableHTML)
+        }
+      }
+    }
   },
   placeholder: '请输入分类详情内容...'
 }

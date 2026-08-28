@@ -249,13 +249,14 @@ class AdminController
         $name = $data['name'] ?? '';
         if (empty($name)) return $this->error('分类名称不能为空');
 
-        $stmt = $this->db->prepare("INSERT INTO category (name, parent_id, prefix, sort, status) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $this->db->prepare("INSERT INTO category (name, parent_id, prefix, sort, status, description) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $name,
             $data['parentId'] ?? $data['parent_id'] ?? 0,
             $data['prefix'] ?? '',
             $data['sort'] ?? 0,
             $data['status'] ?? 1,
+            $data['description'] ?? '',
         ]);
         return $this->success(['id' => $this->db->lastInsertId()], '保存成功');
     }
@@ -269,15 +270,43 @@ class AdminController
         $id = $data['id'] ?? 0;
         if (!$id) return $this->error('参数错误');
 
-        $stmt = $this->db->prepare("UPDATE category SET name=?, parent_id=?, prefix=?, sort=?, status=? WHERE id=?");
-        $stmt->execute([
-            $data['name'] ?? '',
-            $data['parentId'] ?? $data['parent_id'] ?? 0,
-            $data['prefix'] ?? '',
-            $data['sort'] ?? 0,
-            $data['status'] ?? 1,
-            $id,
-        ]);
+        // 构建动态UPDATE，只更新提供的字段
+        $fields = [];
+        $params = [];
+
+        if (isset($data['name'])) {
+            $fields[] = 'name=?';
+            $params[] = $data['name'];
+        }
+        if (array_key_exists('parentId', $data) || array_key_exists('parent_id', $data)) {
+            $fields[] = 'parent_id=?';
+            $params[] = $data['parentId'] ?? $data['parent_id'] ?? 0;
+        }
+        if (isset($data['prefix'])) {
+            $fields[] = 'prefix=?';
+            $params[] = $data['prefix'];
+        }
+        if (isset($data['sort'])) {
+            $fields[] = 'sort=?';
+            $params[] = $data['sort'];
+        }
+        if (isset($data['status'])) {
+            $fields[] = 'status=?';
+            $params[] = $data['status'];
+        }
+        if (array_key_exists('description', $data)) {
+            $fields[] = 'description=?';
+            $params[] = $data['description'] ?? '';
+        }
+
+        if (empty($fields)) {
+            return $this->error('没有要更新的字段');
+        }
+
+        $params[] = $id;
+        $sql = "UPDATE category SET " . implode(', ', $fields) . " WHERE id=?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return $this->success(null, '保存成功');
     }
 
