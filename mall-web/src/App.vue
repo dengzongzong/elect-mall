@@ -10,10 +10,10 @@ import CustomerService from './components/CustomerService.vue'
 </script>
 
 <style>
-/* 引入鸿蒙黑体 HarmonyOS Sans via CDN */
+/* 引入鸿蒙黑体 HarmonyOS Sans (本地字体) */
 @font-face {
   font-family: 'HarmonyOS Sans';
-  src: url('https://cdn.jsdelivr.net/npm/@arietta-studio/webfont-harmony-sans-sc@1.0.3/fonts/HarmonyOS_Sans_SC_Regular.woff2') format('woff2');
+  src: url('/fonts/HarmonyOS_Sans_SC_Regular.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -21,7 +21,7 @@ import CustomerService from './components/CustomerService.vue'
 
 @font-face {
   font-family: 'HarmonyOS Sans';
-  src: url('https://cdn.jsdelivr.net/npm/@arietta-studio/webfont-harmony-sans-sc@1.0.3/fonts/HarmonyOS_Sans_SC_Medium.woff2') format('woff2');
+  src: url('/fonts/HarmonyOS_Sans_SC_Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -29,7 +29,7 @@ import CustomerService from './components/CustomerService.vue'
 
 @font-face {
   font-family: 'HarmonyOS Sans';
-  src: url('https://cdn.jsdelivr.net/npm/@arietta-studio/webfont-harmony-sans-sc@1.0.3/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
+  src: url('/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
   font-weight: bold;
   font-style: normal;
   font-display: swap;
