@@ -99,16 +99,16 @@
               class="rich-editor"
               @focus="onEditorFocus"
             />
-            <div class="desc-upload" v-if="showUpload">
+            <div class="desc-upload">
               <el-upload
                 action="/admin/adapter/upload"
                 :headers="uploadHeaders"
                 :show-file-list="false"
                 :on-success="handleImageUploadSuccess"
               >
-                <el-button size="small">上传图片</el-button>
-                <span class="upload-hint">支持 JPG/PNG/GIF</span>
+                <el-button size="small" type="primary">上传图片</el-button>
               </el-upload>
+              <span class="upload-tip">点击工具栏「图片」按钮或点此上传，支持 JPG/PNG/GIF，图片会自动插入到光标位置</span>
             </div>
           </div>
         </el-form-item>
@@ -178,7 +178,6 @@ const descForm = ref({
   description: ''
 })
 const quillRef = ref(null)
-const showUpload = ref(false)
 
 const editorOptions = {
   modules: {
@@ -199,13 +198,18 @@ const editorOptions = {
         table: function() {
           const quill = this.quill
           const range = quill.getSelection(true)
-          // 插入一个3x3表格
           const tableHTML = '<table style="border-collapse:collapse;width:100%;margin:10px 0;" border="1" cellpadding="8" cellspacing="0"><tbody>'
             + '<tr><td style="border:1px solid #ddd;padding:8px;background:#f5f5f5;font-weight:600;">标题1</td><td style="border:1px solid #ddd;padding:8px;background:#f5f5f5;font-weight:600;">标题2</td><td style="border:1px solid #ddd;padding:8px;background:#f5f5f5;font-weight:600;">标题3</td></tr>'
             + '<tr><td style="border:1px solid #ddd;padding:8px;">内容1</td><td style="border:1px solid #ddd;padding:8px;">内容2</td><td style="border:1px solid #ddd;padding:8px;">内容3</td></tr>'
             + '<tr><td style="border:1px solid #ddd;padding:8px;">内容4</td><td style="border:1px solid #ddd;padding:8px;">内容5</td><td style="border:1px solid #ddd;padding:8px;">内容6</td></tr>'
             + '</tbody></table>'
           quill.clipboard.dangerouslyPasteHTML(range.index, tableHTML)
+        },
+        image: function() {
+          // 点击图片按钮 → 直接触发文件上传
+          setTimeout(() => {
+            document.querySelector('.desc-upload .el-upload input')?.click()
+          }, 100)
         }
       }
     }
@@ -214,11 +218,9 @@ const editorOptions = {
 }
 
 function onEditorFocus() {
-  showUpload.value = false
 }
 
 function beforeCloseDescDialog() {
-  showUpload.value = false
   descDialogVisible.value = false
 }
 
@@ -313,7 +315,6 @@ function handleImageUploadSuccess(res) {
       quill.clipboard.dangerouslyPasteHTML(range ? range.index : quill.getLength(), imgTag)
     }
     ElMessage.success('图片已插入')
-    showUpload.value = false
   }
 }
 
@@ -398,7 +399,7 @@ onMounted(() => {
 }
 
 .rich-editor {
-  min-height: 350px;
+  min-height: 550px;
   background: #fff;
 }
 
@@ -407,23 +408,34 @@ onMounted(() => {
 }
 
 :deep(.quill .ql-container) {
-  min-height: 280px;
+  min-height: 480px;
   font-size: 14px;
 }
 
 :deep(.quill .ql-editor) {
-  min-height: 280px;
+  min-height: 480px;
 }
 
 .desc-upload {
   padding: 8px 12px;
   border-bottom: 1px solid #dcdfe6;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.upload-hint {
+.desc-upload .upload-tip {
   font-size: 12px;
   color: #909399;
-  margin-left: 8px;
+}
+
+/* 表格内图片样式 */
+:deep(.ql-editor td img) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 4px auto;
 }
 
 .preview-wrapper {
