@@ -6,38 +6,29 @@
     <div class="container main-area">
       <div class="content-layout">
         <!-- 分类侧边栏（含悬浮展开面板） -->
-        <div class="category-sidebar" @mouseleave="activeCat = null" @mousedown.prevent>
+        <div class="category-sidebar" @mouseleave="activeCat = null">
           <div class="category-list">
             <div class="category-item" v-for="cat in categories" :key="cat.id"
               @mouseenter="activeCat = cat.id"
+              @mouseleave="activeCat = null"
               :class="{ active: activeCat === cat.id }"
-              @mousedown.prevent
             >
               <router-link :to="`/category/${cat.id}`" class="cat-link">
+                <el-icon><component :is="cat.icon" /></el-icon>
                 <span class="cat-name">{{ cat.name }}</span>
+                <el-icon class="arrow"><ArrowRight /></el-icon>
               </router-link>
-            </div>
-          </div>
-          <!-- 悬浮展开面板 -->
-          <transition name="fade">
-            <div class="category-panel" v-show="activeCat !== null && activePanel" @mouseenter="activeCat = activePanel.id" @mouseleave="activeCat = null" @mousedown.prevent>
-              <div class="panel-inner" v-if="activePanel">
-                <div class="panel-header">
-                  <h4>{{ activePanel.name }}</h4>
-                  <router-link :to="`/category/${activePanel.id}`" class="panel-all">查看全部</router-link>
-                </div>
-                <div class="panel-body">
-                  <div class="panel-group" v-for="(sub, idx) in activePanel.subs" :key="idx">
-                    <div class="group-name">{{ sub.name }}</div>
-                    <div class="group-items" v-if="sub.items.length">
-                      <span class="group-item" v-for="item in sub.items" :key="item.id || item" @click="$router.push(`/category/detail/${item.id || item}`)" @mousedown.prevent>{{ item.name || item }}</span>
-                    </div>
+              <div class="sub-category" v-show="activeCat === cat.id" @mouseleave="activeCat = null">
+                <div class="sub-cat-grid">
+                  <div class="sub-cat-group" v-for="group in cat.subs" :key="group.name">
+                    <h5>{{ group.name }}</h5>
+                    <a v-for="item in group.items" :key="item" href="#" @click.prevent="">{{ item }}</a>
                   </div>
-                  <div v-if="!activePanel.subs.length" class="panel-empty">暂无细分分类</div>
                 </div>
               </div>
             </div>
-          </transition>
+          </div>
+
         </div>
 
         <!-- Banner 轮播 + 固定广告 -->
@@ -369,8 +360,6 @@ function handleAddToCart(product) {
   height: 400px;
   overflow: visible;
   position: relative;
-  user-select: none !important;
-  -webkit-user-select: none !important;
 }
 
 .category-list {
@@ -407,8 +396,8 @@ function handleAddToCart(product) {
   flex: 1;
 }
 
-/* 分类悬浮展开面板 */
-.category-panel {
+/* 子分类展开面板 */
+.sub-category {
   position: absolute;
   left: 240px;
   top: 0;
@@ -417,73 +406,39 @@ function handleAddToCart(product) {
   box-shadow: 2px 4px 16px rgba(0, 0, 0, 0.12);
   border-radius: 0 4px 4px 0;
   z-index: 50;
-  max-height: 400px;
-  overflow-y: auto;
-  user-select: none !important;
-  -webkit-user-select: none !important;
+  min-height: 400px;
+  padding: 20px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.panel-inner {
-  padding: 20px 24px;
+.sub-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
 }
 
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+.sub-cat-group h5 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
   border-bottom: 2px solid var(--theme-color);
+  display: inline-block;
 }
 
-.panel-header h4 {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--theme-color);
-}
-
-.panel-all {
+.sub-cat-group a {
+  display: block;
   font-size: 13px;
-  color: var(--theme-color);
+  color: #888;
+  line-height: 28px;
+  transition: color 0.2s;
   text-decoration: none;
 }
 
-.panel-all:hover {
-  text-decoration: underline;
-}
-
-.panel-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.panel-group {
-  break-inside: avoid;
-}
-
-.group-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.group-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-}
-
-.group-item {
-  font-size: 12px;
-  color: #666;
-  cursor: pointer;
-  transition: color 0.15s;
-  white-space: nowrap;
-  line-height: 1.8;
+.sub-cat-group a:hover {
+  color: var(--theme-color);
 }
 
 .group-item:hover {
