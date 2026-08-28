@@ -114,11 +114,11 @@ async function fetchData() {
       getCategories(),
       getBrands(),
     ])
-    if (catRes.status === 'fulfilled' && catRes.value?.data) {
-      categories.value = catRes.value.data
+    if (catRes.status === 'fulfilled' && catRes.value) {
+      categories.value = catRes.value
     }
-    if (brandRes.status === 'fulfilled' && brandRes.value?.data) {
-      brands.value = brandRes.value.data
+    if (brandRes.status === 'fulfilled' && brandRes.value) {
+      brands.value = brandRes.value
     }
   } catch (e) {
     // ignore
@@ -152,12 +152,12 @@ async function fetchProducts() {
     }
 
     const res = await getProducts(params)
-    if (res.data) {
-      if (res.data.records) {
-        products.value = res.data.records
-        totalRecords.value = res.data.total || 0
+    if (res) {
+      if (res.records) {
+        products.value = res.records
+        totalRecords.value = res.total || 0
       } else {
-        products.value = res.data
+        products.value = res
       }
     }
   } catch (e) {

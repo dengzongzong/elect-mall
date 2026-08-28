@@ -139,9 +139,9 @@ if (!function_exists('sys_config')) {
                 }
             }
         } else {
-            if (strpos($sysConfig, '/uploads/system/') !== false || strpos($sysConfig, '/statics/system_images/') !== false) $sysConfig = set_file_url($sysConfig);
+            if (is_string($sysConfig) && (strpos($sysConfig, '/uploads/system/') !== false || strpos($sysConfig, '/statics/system_images/') !== false)) $sysConfig = set_file_url($sysConfig);
         }
-        $config = is_array($sysConfig) ? $sysConfig : trim($sysConfig);
+        $config = is_array($sysConfig) ? $sysConfig : trim($sysConfig ?? '');
         if ($config === '' || $config === false) {
             return $default;
         } else {

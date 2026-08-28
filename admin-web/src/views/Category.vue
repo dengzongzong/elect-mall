@@ -15,18 +15,24 @@
         :data="tableData"
         stripe
         row-key="id"
-        default-expand-all
+        :tree-props="{ children: 'children' }"
         style="width: 100%"
       >
         <el-table-column prop="name" label="分类名称" min-width="200" />
-        <el-table-column prop="prefix" label="分类编码" width="150" />
+        <el-table-column prop="parent_id" label="层级" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.parent_id === 0 || !row.parent_id" type="danger" size="small">1级-大类</el-tag>
+            <el-tag v-else-if="row.children" type="warning" size="small">2级-品牌</el-tag>
+            <el-tag v-else type="info" size="small">3级-细分</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="sort" label="排序" width="80" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '禁用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="success" link size="small" @click="handleAddSub(row)">新增子类</el-button>
@@ -46,9 +52,6 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="分类名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入分类名称" />
-        </el-form-item>
-        <el-form-item label="分类编码" prop="prefix">
-          <el-input v-model="form.prefix" placeholder="请输入分类编码" />
         </el-form-item>
         <el-form-item label="排序" prop="sort">
           <el-input-number v-model="form.sort" :min="0" :max="999" />
@@ -89,8 +92,7 @@ const form = ref({
 })
 
 const rules = {
-  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
-  prefix: [{ required: true, message: '请输入分类编码', trigger: 'blur' }]
+  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }]
 }
 
 async function fetchCategories() {
@@ -109,7 +111,7 @@ function openDialog(title, row) {
   dialogTitle.value = title
   form.value = {
     id: row?.id || null,
-    parentId: row?.parentId || null,
+    parentId: row?.parentId ?? row?.parent_id ?? 0,
     name: row?.name || '',
     prefix: row?.prefix || '',
     sort: row?.sort ?? 0,
@@ -119,7 +121,7 @@ function openDialog(title, row) {
 }
 
 function handleAddRoot() {
-  openDialog('新增分类', { sort: 0 })
+  openDialog('新增分类', { parentId: 0, sort: 0 })
 }
 
 function handleEdit(row) {

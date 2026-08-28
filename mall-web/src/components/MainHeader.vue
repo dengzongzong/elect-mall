@@ -91,18 +91,57 @@
     <!-- 主导航栏 -->
     <div class="header-nav">
       <div class="container">
-        <div class="nav-category" @mouseenter="showCategory = true" @mouseleave="showCategory = false">
+        <div class="nav-category" @mouseenter="showMegaMenu = true" @mouseleave="showMegaMenu = false">
           <span class="category-btn">
             <el-icon><Grid /></el-icon>
             全部产品分类
           </span>
           <transition name="fade">
-            <div v-show="showCategory" class="category-dropdown">
-              <div class="category-list">
-                <div class="category-item" v-for="cat in categories" :key="cat.id" @click="$router.push(`/category/${cat.id}`)">
-                  <el-icon><component :is="cat.icon" /></el-icon>
-                  <span>{{ cat.name }}</span>
-                  <el-icon class="arrow-right"><ArrowRight /></el-icon>
+            <div v-show="showMegaMenu" class="mega-menu" @mouseenter="showMegaMenu = true" @mouseleave="showMegaMenu = false">
+              <!-- 左侧：1级大类 -->
+              <div class="mega-left">
+                <div class="mega-left-inner">
+                  <div
+                    class="mega-l1-item"
+                    v-for="cat in categories"
+                    :key="cat.id"
+                    :class="{ active: activeCategoryId === cat.id }"
+                    @mouseenter="activeCategoryId = cat.id"
+                    @click="goToCategory(cat.id)"
+                  >
+                    <span class="l1-name">{{ cat.name }}</span>
+                    <el-icon class="l1-arrow"><ArrowRight /></el-icon>
+                  </div>
+                </div>
+              </div>
+              <!-- 中栏：2级品牌 + 3级细分 -->
+              <div class="mega-center" v-if="activeCategory">
+                <div class="mega-center-inner">
+                  <div class="mega-brand-group" v-for="(sub, idx) in activeCategory.subs" :key="idx">
+                    <div class="brand-name">{{ sub.name }}</div>
+                    <div class="brand-items" v-if="sub.items.length">
+                      <span
+                        class="brand-item"
+                        v-for="item in sub.items"
+                        :key="item"
+                        @click="goToCategory(activeCategory.id, item)"
+                      >{{ item }}</span>
+                    </div>
+                  </div>
+                  <div v-if="!activeCategory.subs.length" class="mega-empty">暂无细分分类</div>
+                  <div class="view-all">
+                    <router-link :to="`/category/${activeCategory.id}`" class="view-all-link">查看全部 <el-icon><ArrowRight /></el-icon></router-link>
+                  </div>
+                </div>
+              </div>
+              <!-- 右栏：品牌推荐 -->
+              <div class="mega-right">
+                <div class="mega-right-title">推荐品牌</div>
+                <div class="brand-grid">
+                  <div class="brand-logo-item" v-for="brand in featuredBrands" :key="brand.id" @click="$router.push(`/brand/${brand.id}`)">
+                    <img :src="brand.logo" :alt="brand.name" class="brand-logo" @error="onBrandImgError" />
+                    <span class="brand-logo-name">{{ brand.name }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -124,30 +163,49 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useCartStore } from '../stores/cart'
+import { getCategories } from '../api/product'
 
 const router = useRouter()
 const userStore = useUserStore()
 const cartStore = useCartStore()
 
-const searchKeyword = ref('')
-const showCategory = ref(false)
+const categories = ref([])
+const featuredBrands = ref([])
+const showMegaMenu = ref(false)
+const activeCategoryId = ref(null)
 
-const categories = [
-  { id: 1, name: 'MCU微控制器', icon: 'Cpu' },
-  { id: 2, name: '传感器', icon: 'DataAnalysis' },
-  { id: 3, name: '电源管理', icon: 'Battery' },
-  { id: 4, name: '模拟器件', icon: 'TrendCharts' },
-  { id: 5, name: '连接器', icon: 'Connection' },
-  { id: 6, name: '无源器件', icon: 'SetUp' },
-  { id: 7, name: '分立半导体', icon: 'Monitor' },
-  { id: 8, name: '存储器', icon: 'Folder' },
-  { id: 9, name: '无线模块', icon: 'Wifi' },
-  { id: 10, name: '开发工具', icon: 'Tools' },
-]
+const activeCategory = computed(() => {
+  return categories.value.find(c => c.id === activeCategoryId.value) || null
+})
+
+async function fetchCategories() {
+  try {
+    const res = await getCategories()
+    categories.value = res || []
+    if (categories.value.length && !activeCategoryId.value) {
+      activeCategoryId.value = categories.value[0].id
+    }
+  } catch (e) {
+    categories.value = []
+  }
+}
+
+function goToCategory(catId, subName) {
+  showMegaMenu.value = false
+  const query = subName ? { keyword: subName } : {}
+  router.push({ path: `/category/${catId}`, query })
+}
+
+function onBrandImgError(e) {
+  e.target.style.display = 'none'
+  e.target.nextElementSibling.style.display = 'block'
+}
+
+const searchKeyword = ref('')
 
 function handleSearch() {
   if (searchKeyword.value.trim()) {
@@ -161,7 +219,16 @@ function handleLogout() {
 }
 
 onMounted(() => {
-  // 初始化购物车显示
+  fetchCategories()
+  // 获取推荐品牌（前端硬编码一些知名品牌供展示）
+  featuredBrands.value = [
+    { id: 1, name: 'muRata', logo: '/logo.jpg' },
+    { id: 2, name: 'TDK', logo: '/logo.jpg' },
+    { id: 3, name: 'Taiyo Yuden', logo: '/logo.jpg' },
+    { id: 4, name: 'SAMSUNG', logo: '/logo.jpg' },
+    { id: 5, name: 'Yageo', logo: '/logo.jpg' },
+    { id: 6, name: 'FH(风华)', logo: '/logo.jpg' },
+  ]
 })
 </script>
 
@@ -375,6 +442,7 @@ onMounted(() => {
   position: relative;
   width: 200px;
   flex-shrink: 0;
+  height: 44px;
 }
 
 .category-btn {
@@ -391,46 +459,194 @@ onMounted(() => {
   user-select: none;
 }
 
-.category-dropdown {
+/* Mega Menu */
+.mega-menu {
   position: absolute;
   top: 100%;
   left: 0;
-  width: 240px;
+  width: 960px;
   background: #fff;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  z-index: 100;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  z-index: 200;
+  display: flex;
+  min-height: 460px;
   border-radius: 0 0 4px 4px;
 }
 
-.category-list {
-  padding: 8px 0;
+.mega-left {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid #eee;
+  overflow-y: auto;
+  background: #fafafa;
 }
 
-.category-item {
+.mega-left-inner {
+  padding: 4px 0;
+}
+
+.mega-l1-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
+  padding: 10px 16px 10px 20px;
   cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
+  font-size: 13px;
   color: #333;
+  transition: all 0.15s;
+  position: relative;
+  border-left: 4px solid transparent;
 }
 
-.category-item:hover {
-  background: var(--theme-color-light);
+.mega-l1-item:hover {
+  background: #fff;
+}
+
+.mega-l1-item.active {
+  background: #fff;
+  border-left-color: var(--theme-color);
+  color: var(--theme-color);
+  font-weight: 600;
+}
+
+.l1-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.l1-arrow {
+  font-size: 14px;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+.mega-l1-item.active .l1-arrow {
   color: var(--theme-color);
 }
 
-.category-item .arrow-right {
-  margin-left: auto;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.2s;
+.mega-center {
+  width: 460px;
+  flex-shrink: 0;
+  border-right: 1px solid #eee;
+  overflow-y: auto;
 }
 
-.category-item:hover .arrow-right {
-  opacity: 1;
+.mega-center-inner {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mega-brand-group {
+  break-inside: avoid;
+}
+
+.brand-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.brand-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+}
+
+.brand-item {
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+  line-height: 1.8;
+}
+
+.brand-item:hover {
+  color: var(--theme-color);
+}
+
+.view-all {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.view-all-link {
+  font-size: 13px;
+  color: var(--theme-color);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+.mega-empty {
+  color: #bbb;
+  font-size: 13px;
+  padding: 20px 0;
+}
+
+.mega-right {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.mega-right-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--theme-color);
+}
+
+.brand-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.brand-logo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 10px 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.brand-logo-item:hover {
+  border-color: var(--theme-color);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.brand-logo {
+  width: 64px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.brand-logo-name {
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+  line-height: 1.3;
+  display: none;
 }
 
 .nav-links {
@@ -461,7 +677,7 @@ onMounted(() => {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity 0.15s;
 }
 
 .fade-enter-from,

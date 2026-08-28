@@ -12,6 +12,12 @@
 // [ 应用入口文件 ]
 namespace think;
 
+// 根路径重定向到商城前端
+if ($_SERVER['REQUEST_URI'] === '/' || $_SERVER['REQUEST_URI'] === '') {
+    header('Location: http://localhost:8080');
+    exit;
+}
+
 if ('7.1.0' > phpversion()) {
     exit('您的php版本过低，需要PHP 7.1及以上版本，谢谢！');
 }

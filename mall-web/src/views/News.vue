@@ -77,16 +77,16 @@ onMounted(async () => {
 })
 
 function formatNews(n) {
-  const date = n.createdAt ? new Date(n.createdAt) : new Date()
+  const date = n.created_at ? new Date(n.created_at) : new Date()
   const month = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
-  const shortDate = n.createdAt ? n.createdAt.substring(0, 10) : ''
+  const shortDate = n.created_at ? n.created_at.substring(0, 10) : ''
   return {
     id: n.id,
     title: n.title,
     image: n.image || '',
     summary: (n.content || '').replace(/[*#\-\n]/g, '').substring(0, 120) + '...',
-    views: n.likeCount || 0,
+    views: n.like_count || 0,
     month: shortDate,
     day,
     shortDate,

@@ -5,25 +5,40 @@
     <!-- 主内容区域：分类侧边栏 + Banner -->
     <div class="container main-area">
       <div class="content-layout">
-        <!-- 分类侧边栏 -->
-        <div class="category-sidebar">
+        <!-- 分类侧边栏（含悬浮展开面板） -->
+        <div class="category-sidebar" @mouseleave="activeCat = null">
           <div class="category-list">
-            <div class="category-item" v-for="cat in categories" :key="cat.id" @mouseenter="activeCat = cat.id">
+            <div class="category-item" v-for="cat in categories" :key="cat.id"
+              @mouseenter="activeCat = cat.id"
+              :class="{ active: activeCat === cat.id }"
+            >
               <router-link :to="`/category/${cat.id}`" class="cat-link">
                 <el-icon><component :is="cat.icon" /></el-icon>
                 <span class="cat-name">{{ cat.name }}</span>
                 <el-icon class="arrow"><ArrowRight /></el-icon>
               </router-link>
-              <div class="sub-category" v-show="activeCat === cat.id" @mouseleave="activeCat = null">
-                <div class="sub-cat-grid">
-                  <div class="sub-cat-group" v-for="group in cat.subs" :key="group.name">
-                    <h5>{{ group.name }}</h5>
-                    <a v-for="item in group.items" :key="item" href="#" @click.prevent="">{{ item }}</a>
+            </div>
+          </div>
+          <!-- 悬浮展开面板 -->
+          <transition name="fade">
+            <div class="category-panel" v-show="activeCat !== null && activePanel" @mouseenter="activeCat = activePanel.id" @mouseleave="activeCat = null">
+              <div class="panel-inner" v-if="activePanel">
+                <div class="panel-header">
+                  <h4>{{ activePanel.name }}</h4>
+                  <router-link :to="`/category/${activePanel.id}`" class="panel-all">查看全部 <el-icon><ArrowRight /></el-icon></router-link>
+                </div>
+                <div class="panel-body">
+                  <div class="panel-group" v-for="(sub, idx) in activePanel.subs" :key="idx">
+                    <div class="group-name">{{ sub.name }}</div>
+                    <div class="group-items" v-if="sub.items.length">
+                      <span class="group-item" v-for="item in sub.items" :key="item" @click="$router.push(`/category/${activePanel.id}?keyword=${item}`)">{{ item }}</span>
+                    </div>
                   </div>
+                  <div v-if="!activePanel.subs.length" class="panel-empty">暂无细分分类</div>
                 </div>
               </div>
             </div>
-          </div>
+          </transition>
         </div>
 
         <!-- Banner 轮播 + 固定广告 -->
@@ -87,7 +102,7 @@
         </div>
         <div class="brand-grid">
           <div class="brand-item" v-for="brand in brands" :key="brand.id" @click="$router.push(`/brand/${brand.id}`)">
-            <img v-if="brand.logo" :src="brand.logo" :alt="brand.name" class="brand-logo" @error="e => e.target.style.display='none'" />
+            <img v-if="brand.logo" :src="brand.logo" :alt="brand.name" class="brand-logo" @error="onBrandImgError($event, brand)" />
             <span v-else class="brand-logo-text">{{ brand.name }}</span>
           </div>
         </div>
@@ -128,22 +143,6 @@
       </div>
     </div>
 
-    <!-- 合作品牌介绍 -->
-    <div class="cooperation-section">
-      <div class="container">
-        <div class="section-header">
-          <h3>合作品牌专区</h3>
-          <router-link to="/cooperate" class="more-link">了解更多 <el-icon><ArrowRight /></el-icon></router-link>
-        </div>
-        <div class="coop-grid">
-          <div class="coop-card" v-for="c in coopBrands" :key="c.name">
-            <div class="coop-img-placeholder">{{ c.name }}</div>
-            <p>{{ c.desc }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 新闻资讯 -->
     <div class="news-section">
       <div class="container">
@@ -151,20 +150,12 @@
           <h3>新品资讯</h3>
           <router-link to="/news" class="more-link">更多资讯 <el-icon><ArrowRight /></el-icon></router-link>
         </div>
-        <div class="news-grid">
-          <div class="news-card" v-for="news in newsList" :key="news.id" @click="$router.push(`/news/${news.id}`)">
-            <div class="news-card-img">
-              <img :src="news.image" :alt="news.title" @error="e => e.target.style.display='none'" />
-              <div class="news-card-date">{{ news.day }}</div>
-            </div>
-            <div class="news-card-body">
-              <h4>{{ news.title }}</h4>
-              <div class="news-card-meta">
-                <span class="news-card-time">{{ news.month }}</span>
-                <span class="news-card-views">
-                  <el-icon><View /></el-icon> {{ news.views }}
-                </span>
-              </div>
+        <div class="news-list">
+          <div class="news-col" v-for="(col, colIdx) in newsCols" :key="colIdx">
+            <div class="news-item" v-for="news in col" :key="news.id" @click="$router.push(`/news/${news.id}`)">
+              <span class="news-dot">•</span>
+              <span class="news-title">{{ news.title }}</span>
+              <span class="news-date">{{ formatDate(news.created_at) }}</span>
             </div>
           </div>
         </div>
@@ -182,7 +173,7 @@ import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
 import { getCategories, getBrands, getProducts } from '../api/product'
-import { getCooperateBrands, getNewsList } from '../api/content'
+import { getNewsList } from '../api/content'
 
 const cartStore = useCartStore()
 const activeCat = ref(null)
@@ -190,7 +181,6 @@ const activeCat = ref(null)
 const categories = ref([])
 const brands = ref([])
 const hotProducts = ref([])
-const coopBrands = ref([])
 const newsList = ref([])
 
 const brandMap = computed(() => {
@@ -205,6 +195,17 @@ const featuredProducts = computed(() => {
   return hotProducts.value.slice(0, 4)
 })
 
+const activePanel = computed(() => {
+  if (activeCat.value === null) return null
+  return categories.value.find(c => c.id === activeCat.value) || null
+})
+
+const newsCols = computed(() => {
+  const list = newsList.value
+  const half = Math.ceil(list.length / 2)
+  return [list.slice(0, half), list.slice(half)]
+})
+
 function getBrandLogo(brandId) {
   const b = brandMap.value[brandId]
   return b ? b.logo : ''
@@ -213,6 +214,17 @@ function getBrandLogo(brandId) {
 function getBrandName(brandId) {
   const b = brandMap.value[brandId]
   return b ? b.name : ''
+}
+
+function onBrandImgError(event, brand) {
+  const img = event.target
+  if (img && img.parentNode) {
+    img.style.display = 'none'
+    const text = document.createElement('span')
+    text.className = 'brand-logo-text'
+    text.textContent = brand.name
+    img.parentNode.appendChild(text)
+  }
 }
 
 function getFeatures(product) {
@@ -225,6 +237,15 @@ function getFeatures(product) {
     `封装：${product.unit || 'SMD'}`,
     `品牌：${getBrandName(product.brandId)}`
   ]
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}/${m}/${day}`
 }
 
 const banners = [
@@ -251,38 +272,33 @@ const features = [
 
 async function fetchHomeData() {
   try {
-    const [catRes, brandRes, productRes, coopRes, newsRes] = await Promise.allSettled([
+    const [catRes, brandRes, productRes, newsRes] = await Promise.allSettled([
       getCategories(),
       getBrands(),
       getProducts({ page: 1, size: 8, orderBy: 'created_at', orderDir: 'desc' }),
-      getCooperateBrands(),
       getNewsList(),
     ])
 
-    if (catRes.status === 'fulfilled' && catRes.value?.data) {
-      categories.value = catRes.value.data
+    if (catRes.status === 'fulfilled' && catRes.value) {
+      categories.value = catRes.value
     }
 
-    if (brandRes.status === 'fulfilled' && brandRes.value?.data) {
-      brands.value = brandRes.value.data
+    if (brandRes.status === 'fulfilled' && brandRes.value) {
+      brands.value = (brandRes.value || []).filter(b => b.is_cooperate == 1 || b.is_cooperate === true)
     }
 
-    if (productRes.status === 'fulfilled' && productRes.value?.data?.records) {
-      hotProducts.value = productRes.value.data.records
+    if (productRes.status === 'fulfilled' && productRes.value?.records) {
+      hotProducts.value = productRes.value.records
     }
 
-    if (coopRes.status === 'fulfilled' && coopRes.value?.data) {
-      coopBrands.value = coopRes.value.data
-    }
-
-    if (newsRes.status === 'fulfilled' && newsRes.value?.data) {
-      newsList.value = newsRes.value.data.map(n => ({
+    if (newsRes.status === 'fulfilled' && newsRes.value) {
+      newsList.value = newsRes.value.map(n => ({
         id: n.id,
         title: n.title,
         image: n.image || '',
-        views: n.likeCount || 0,
-        day: n.createdAt ? new Date(n.createdAt).getDate().toString().padStart(2, '0') : '',
-        month: n.createdAt ? new Date(n.createdAt).getFullYear() + '-' + String(new Date(n.createdAt).getMonth() + 1).padStart(2, '0') : '',
+        views: n.like_count || 0,
+        day: n.created_at ? new Date(n.created_at).getDate().toString().padStart(2, '0') : '',
+        month: n.created_at ? new Date(n.created_at).getFullYear() + '-' + String(new Date(n.created_at).getMonth() + 1).padStart(2, '0') : '',
       }))
     }
   } catch (e) {
@@ -340,6 +356,7 @@ function handleAddToCart(product) {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   height: 400px;
   overflow: visible;
+  position: relative;
 }
 
 .category-list {
@@ -349,6 +366,17 @@ function handleAddToCart(product) {
 
 .category-item {
   position: static;
+}
+
+.category-item.active .cat-link {
+  background: var(--theme-color-light);
+  color: var(--theme-color);
+  font-weight: 600;
+}
+
+.category-item.active .cat-link .arrow {
+  opacity: 1;
+  color: var(--theme-color);
 }
 
 .cat-link {
@@ -387,45 +415,105 @@ function handleAddToCart(product) {
   opacity: 1;
 }
 
-.sub-category {
+/* 分类悬浮展开面板 */
+.category-panel {
   position: absolute;
   left: 240px;
   top: 0;
   width: 680px;
   background: #fff;
-  box-shadow: 2px 4px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 4px 16px rgba(0, 0, 0, 0.12);
   border-radius: 0 4px 4px 0;
   z-index: 50;
-  min-height: 400px;
-  padding: 20px;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
-.sub-cat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+.panel-inner {
+  padding: 20px 24px;
 }
 
-.sub-cat-group h5 {
-  font-size: 14px;
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--theme-color);
+}
+
+.panel-header h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--theme-color);
+}
+
+.panel-all {
+  font-size: 13px;
+  color: var(--theme-color);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel-all:hover {
+  text-decoration: underline;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-group {
+  break-inside: avoid;
+}
+
+.group-name {
+  font-size: 13px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid var(--theme-color);
-  display: inline-block;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.sub-cat-group a {
-  display: block;
-  font-size: 13px;
-  color: #888;
-  line-height: 28px;
-  transition: color 0.2s;
+.group-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
 }
 
-.sub-cat-group a:hover {
+.group-item {
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+  line-height: 1.8;
+}
+
+.group-item:hover {
   color: var(--theme-color);
+}
+
+.panel-empty {
+  color: #bbb;
+  font-size: 13px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Banner 容器 */
@@ -808,51 +896,7 @@ function handleAddToCart(product) {
   border-radius: 4px;
 }
 
-/* 合作品牌 */
-.cooperation-section {
-  background: #fff;
-  padding: 40px 0;
-  margin-top: 20px;
-}
-
-.coop-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.coop-card {
-  text-align: center;
-  padding: 30px 20px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  transition: all 0.3s;
-}
-
-.coop-card:hover {
-  border-color: var(--theme-color);
-  box-shadow: 0 4px 12px rgba(230, 0, 18, 0.08);
-}
-
-.coop-img-placeholder {
-  width: 80px;
-  height: 80px;
-  line-height: 80px;
-  margin: 0 auto 16px;
-  background: var(--theme-color-light);
-  color: var(--theme-color);
-  border-radius: 50%;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.coop-card p {
-  font-size: 13px;
-  color: #888;
-  line-height: 1.6;
-}
-
-/* 新闻资讯 */
+/* 新闻资讯 - 唯样原厂动态风格 */
 .news-section {
   background: #fff;
   padding: 40px 0;
@@ -860,99 +904,63 @@ function handleAddToCart(product) {
   margin-bottom: 20px;
 }
 
-.news-grid {
+.news-list {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 40px;
 }
 
-.news-card {
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
+.news-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.news-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f0f0f0;
   cursor: pointer;
-  transition: all 0.3s;
-  background: #fff;
-}
-
-.news-card:hover {
-  border-color: var(--theme-color);
-  box-shadow: 0 4px 16px rgba(230, 0, 18, 0.08);
-  transform: translateY(-2px);
-}
-
-.news-card-img {
-  position: relative;
-  height: 130px;
-  overflow: hidden;
-  background: #fafafa;
-}
-
-.news-card-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.news-card:hover .news-card-img img {
-  transform: scale(1.05);
-}
-
-.news-card-date {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: var(--theme-color);
-  color: #fff;
   font-size: 14px;
-  font-weight: 700;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  line-height: 1.2;
-}
-
-.news-card-body {
-  padding: 12px;
-}
-
-.news-card-body h4 {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
   line-height: 1.4;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  transition: color 0.2s;
+}
+
+.news-item:last-child {
+  border-bottom: none;
+}
+
+.news-item:hover {
+  color: var(--theme-color);
+}
+
+.news-dot {
+  flex-shrink: 0;
+  color: var(--theme-color);
+  font-size: 14px;
+  margin-right: 8px;
+  line-height: 1;
+}
+
+.news-title {
+  flex: 1;
+  color: #333;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
 }
 
-.news-card-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
+.news-item:hover .news-title {
+  color: var(--theme-color);
+}
+
+.news-date {
+  flex-shrink: 0;
+  margin-left: 12px;
   color: #999;
-}
-
-.news-card-time {
-  color: #bbb;
-}
-
-.news-card-views {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  color: #bbb;
-}
-
-.news-card-views .el-icon {
   font-size: 12px;
+  white-space: nowrap;
 }
 
 /* 响应式：小屏幕隐藏右侧广告 */

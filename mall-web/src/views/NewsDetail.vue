@@ -68,27 +68,27 @@ onMounted(async () => {
       getNewsDetail(newsId),
       getNewsList(),
     ])
-    const detail = detailRes.data || detailRes
-    if (detail) {
-      const date = detail.createdAt ? detail.createdAt.substring(0, 10) : ''
+    const detail = detailRes || {}
+    if (detail && detail.id) {
+      const date = detail.created_at ? detail.created_at.substring(0, 10) : ''
       news.value = {
         id: detail.id,
         title: detail.title,
         content: detail.content || '',
         image: detail.image || '',
-        views: detail.likeCount || 0,
-        likes: detail.likeCount || 0,
+        views: detail.like_count || 0,
+        likes: detail.like_count || 0,
         date,
       }
     }
-    const list = listRes.data || listRes || []
+    const list = listRes || []
     latestNews.value = list
       .filter(n => n.id != newsId)
       .slice(0, 5)
       .map(n => ({
         id: n.id,
         title: n.title,
-        shortDate: n.createdAt ? n.createdAt.substring(0, 10) : '',
+        shortDate: n.created_at ? n.created_at.substring(0, 10) : '',
       }))
   } catch (e) {
     console.error('获取新闻详情失败', e)

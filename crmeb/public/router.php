@@ -17,5 +17,19 @@ if (strpos($path, '/api/adapter/') === 0) {
     return true;
 }
 
+// 拦截根路径，跳转到商城前端
+if ($path === '/' || $path === '') {
+    header('Location: http://localhost:8080');
+    exit;
+}
+
+// 拦截CRMEB前端页面路径（pages/*），返回404提示
+if (strpos($path, '/pages/') === 0) {
+    http_response_code(404);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['code' => 404, 'msg' => '前端页面请通过 http://localhost:8080 访问', 'data' => null, 'success' => false], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // 其他请求由CRMEB正常处理
 return false;

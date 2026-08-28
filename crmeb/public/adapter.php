@@ -190,8 +190,30 @@ $routes = [
     'GET category/list' => function() {
         checkLogin();
         $db = getDB();
-        $stmt = $db->query("SELECT * FROM category ORDER BY sort ASC");
-        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $stmt = $db->query("SELECT * FROM category ORDER BY parent_id ASC, sort ASC");
+        $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // 将id和parent_id转为字符串，防止JavaScript精度丢失（ID超过Number.MAX_SAFE_INTEGER）
+        foreach ($all as &$item) {
+            $item['id'] = (string)$item['id'];
+            $item['parent_id'] = (string)$item['parent_id'];
+            $item['children'] = [];
+        }
+        unset($item);
+        $map = [];
+        $tree = [];
+        foreach ($all as &$item) {
+            $map[$item['id']] = &$item;
+        }
+        unset($item);
+        foreach ($map as $id => &$item) {
+            if ($item['parent_id'] !== '0' && isset($map[$item['parent_id']])) {
+                $map[$item['parent_id']]['children'][] = &$item;
+            } else {
+                $tree[] = &$item;
+            }
+        }
+        unset($item);
+        success($tree);
     },
     'POST category/add' => function() {
         checkLogin(); $data = getInput();
@@ -213,8 +235,26 @@ $routes = [
         checkLogin(); $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
-        $db->prepare("DELETE FROM category WHERE id = ?")->execute([$id]);
-        success(null, '删除成功');
+        // 递归删除子分类
+        $stmt = $db->prepare("SELECT id FROM category WHERE parent_id = ?");
+        $delStmt = $db->prepare("DELETE FROM category WHERE id = ?");
+        $idsToDelete = [$id];
+        $queue = [$id];
+        while ($queue) {
+            $pid = array_shift($queue);
+            $stmt->execute([$pid]);
+            $children = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($children as $cid) {
+                $idsToDelete[] = $cid;
+                $queue[] = $cid;
+            }
+        }
+        // 从叶子节点开始删除（逆序避免外键约束）
+        $idsToDelete = array_reverse($idsToDelete);
+        foreach ($idsToDelete as $did) {
+            $delStmt->execute([$did]);
+        }
+        success(null, '删除成功，共删除 ' . count($idsToDelete) . ' 条');
     },
     'GET news/list' => function() {
         checkLogin();
@@ -285,7 +325,7 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM `order`")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM `order` ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'POST order/audit' => function() {
@@ -306,7 +346,7 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM user")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM user ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'GET inquiry/page' => function() {
@@ -315,7 +355,7 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM inquiry")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM inquiry ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'POST inquiry/reply' => function() {
@@ -343,7 +383,7 @@ $routes = [
         $db = getDB();
         $data = $db->query("SELECT * FROM sys_config")->fetchAll(PDO::FETCH_ASSOC);
         $settings = [];
-        foreach ($data as $row) { $settings[$row['key']] = $row['value']; }
+        foreach ($data as $row) { $settings[$row['config_key'] ?? $row['key']] = $row['config_value'] ?? $row['value']; }
         success($settings);
     },
     'POST setting/save' => function() {
@@ -351,7 +391,7 @@ $routes = [
         $db = getDB();
         foreach ($data as $key => $value) {
             if ($key === 'id') continue;
-            $stmt = $db->prepare("INSERT INTO sys_config (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?");
+            $stmt = $db->prepare("INSERT INTO sys_config (config_key, config_value, created_at, updated_at) VALUES (?, ?, NOW(), NOW()) ON DUPLICATE KEY UPDATE config_value = ?, updated_at = NOW()");
             $stmt->execute([$key, $value, $value]);
         }
         success(null, '保存成功');
@@ -374,7 +414,7 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM bom_record")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM bom_record ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'DELETE bom/delete' => function() {
@@ -418,7 +458,7 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM datasheet")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM datasheet ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'DELETE datasheet/delete' => function() {
@@ -434,7 +474,7 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM message")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM message ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'POST message/send' => function() {
@@ -450,17 +490,51 @@ $routes = [
     // 产品分类
     'GET product/categories' => function() {
         $db = getDB();
-        $stmt = $db->query("SELECT * FROM category ORDER BY sort ASC");
-        $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        success($categories);
+        $stmt = $db->query("SELECT * FROM category WHERE deleted = 0 OR deleted IS NULL ORDER BY parent_id ASC, sort ASC");
+        $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // 构建树形结构
+        $map = [];
+        $children = [];
+        foreach ($all as $item) {
+            $map[$item['id']] = $item;
+            if (!isset($children[$item['id']])) $children[$item['id']] = [];
+            if ($item['parent_id']) {
+                if (!isset($children[$item['parent_id']])) $children[$item['parent_id']] = [];
+                $children[$item['parent_id']][] = $item['id'];
+            }
+        }
+        // 构建1级->2级品牌分组->3级产品细分
+        $tree = [];
+        $iconMap = ['Cpu', 'List', 'Connection', 'Monitor', 'Microphone', 'Coin', 'SetUp', 'Tools', 'Edit', 'Search', 'Folder', 'Document', 'Reading', 'DataBoard', 'CollectionTag', 'Aim', 'Bell', 'ChatDotSquare', 'ChromeFilled', 'Cloudy'];
+        $iconIdx = 0;
+        foreach ($all as $item) {
+            if ($item['parent_id'] == 0) {
+                $subs = [];
+                foreach ($children[$item['id']] ?? [] as $l2id) {
+                    $l2 = $map[$l2id];
+                    $items = [];
+                    foreach ($children[$l2id] ?? [] as $l3id) {
+                        $items[] = $map[$l3id]['name'];
+                    }
+                    $subs[] = ['name' => $l2['name'], 'items' => $items];
+                }
+                $tree[] = [
+                    'id' => $item['id'],
+                    'name' => $item['name'],
+                    'icon' => $iconMap[$iconIdx % count($iconMap)],
+                    'subs' => $subs,
+                ];
+                $iconIdx++;
+            }
+        }
+        success($tree);
     },
     'GET product/categories/tree' => function() {
         $db = getDB();
-        $stmt = $db->query("SELECT * FROM category ORDER BY sort ASC");
+        $stmt = $db->query("SELECT * FROM category ORDER BY parent_id ASC, sort ASC");
         $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        // 构建树形结构
-        $tree = [];
         $map = [];
+        $tree = [];
         foreach ($all as $item) {
             $item['children'] = [];
             $map[$item['id']] = $item;
@@ -484,14 +558,16 @@ $routes = [
         $bind = [];
         if ($categoryId) { $where .= " AND p.category_id = ?"; $bind[] = $categoryId; }
         if ($keyword) { $where .= " AND (p.name LIKE ? OR p.part_no LIKE ?)"; $bind[] = "%$keyword%"; $bind[] = "%$keyword%"; }
-        $total = (int)$db->prepare("SELECT COUNT(*) as total FROM product p $where")->execute($bind) ? $db->query("SELECT COUNT(*) as total FROM product p $where")->fetch(PDO::FETCH_ASSOC)['total'] : 0;
-        // 重新查询
+        $total = 0;
         $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product p $where");
         $countStmt->execute($bind);
         $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id $where ORDER BY p.id DESC LIMIT ? OFFSET ?");
-        $bind[] = $size; $bind[] = $offset;
-        $stmt->execute($bind);
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'GET product/recommend' => function() {
@@ -520,7 +596,10 @@ $routes = [
         $countStmt->execute([$brandId]);
         $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id WHERE p.brand_id = ? ORDER BY p.id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$brandId, $size, $offset]);
+        $stmt->bindValue(1, $brandId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $size, PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
 
@@ -683,7 +762,10 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM `order` WHERE user_id = $userId")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM `order` WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$userId, $size, $offset]);
+        $stmt->bindValue(1, $userId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $size, PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'GET order/{id}' => function($id) {
@@ -854,7 +936,9 @@ $routes = [
         $db = getDB();
         $total = (int)$db->query("SELECT COUNT(*) as total FROM datasheet")->fetch(PDO::FETCH_ASSOC)['total'];
         $stmt = $db->prepare("SELECT * FROM datasheet ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->execute([$size, $offset]);
+        $stmt->bindValue(1, $size, PDO::PARAM_INT);
+        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
 

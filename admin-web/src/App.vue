@@ -14,6 +14,6 @@
 
 html, body, #app {
   height: 100%;
-  font-family: 'Roboto', 'Noto Sans', 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  font-family: 'Roboto', 'Noto Sans', 'PingFang SC', 'Microsoft YaHei', Arial, Helvetica, sans-serif;
 }
 </style>
