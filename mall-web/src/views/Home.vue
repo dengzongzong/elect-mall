@@ -14,7 +14,6 @@
               :class="{ active: activeCat === cat.id }"
             >
               <router-link :to="`/category/${cat.id}`" class="cat-link">
-                <el-icon><component :is="cat.icon" /></el-icon>
                 <span class="cat-name">{{ cat.name }}</span>
                 <el-icon class="arrow"><ArrowRight /></el-icon>
               </router-link>
@@ -22,7 +21,7 @@
                 <div class="sub-cat-grid">
                   <div class="sub-cat-group" v-for="group in cat.subs" :key="group.name">
                     <h5>{{ group.name }}</h5>
-                    <a v-for="item in group.items" :key="item" href="#" @click.prevent="">{{ item }}</a>
+                    <a v-for="item in group.items" :key="item.id || item" href="#" @click.prevent="">{{ displayItemName(item) }}</a>
                   </div>
                 </div>
               </div>
@@ -189,6 +188,20 @@ const activePanel = computed(() => {
   if (activeCat.value === null) return null
   return categories.value.find(c => c.id === activeCat.value) || null
 })
+
+// 三级分类项：正常为 {name,id} 对象，若后端返回的是 JSON 字符串则解析后取 name，
+// 避免直接渲染对象导致页面出现 {"name":"...","id":"..."}
+function displayItemName(item) {
+  if (typeof item === 'string') {
+    try {
+      const parsed = JSON.parse(item)
+      return parsed.name || parsed
+    } catch (e) {
+      return item
+    }
+  }
+  return (item && item.name) || item || ''
+}
 
 const newsCols = computed(() => {
   const list = newsList.value

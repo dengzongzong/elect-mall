@@ -23,8 +23,8 @@
           <div class="filter-section">
             <h4>品牌</h4>
             <div class="filter-list">
-              <div class="filter-item" v-for="brand in brands" :key="brand">
-                <a href="#">{{ brand }}</a>
+              <div class="filter-item" v-for="brand in brands" :key="brand.id">
+                <a href="#">{{ brand.name }}</a>
               </div>
             </div>
           </div>
