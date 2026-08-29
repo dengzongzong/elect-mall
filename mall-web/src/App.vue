@@ -8,31 +8,8 @@ import CustomerService from './components/CustomerService.vue'
 </script>
 
 <style>
-/* 引入鸿蒙黑体 HarmonyOS Sans (本地字体) */
-@font-face {
-  font-family: 'HarmonyOS Sans';
-  src: url('/fonts/HarmonyOS_Sans_SC_Regular.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'HarmonyOS Sans';
-  src: url('/fonts/HarmonyOS_Sans_SC_Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'HarmonyOS Sans';
-  src: url('/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
-  font-weight: bold;
-  font-style: normal;
-  font-display: swap;
-}
-
+/* 与 digikey.cn 一致的系统字体栈：英文优先 Roboto/Noto Sans（本机已装才生效），
+   中文不加载任何字体文件，回退到系统默认（Windows 为微软雅黑，Mac 为苹方） */
 * {
   margin: 0;
   padding: 0;
@@ -41,7 +18,7 @@ import CustomerService from './components/CustomerService.vue'
 
 html, body {
   height: 100%;
-  font-family: 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+  font-family: Roboto, 'Noto Sans', 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #333;
   background-color: #f5f5f5;
 }
@@ -55,7 +32,7 @@ a {
   color: inherit;
 }
 
-/* button/input 等表单控件的浏览器默认字体是 Arial 且不继承 body，需显式继承 */
+/* button/input 等表单控件的浏览器默认字体不继承 body，需显式继承 */
 button, input, textarea, select {
   font-family: inherit;
 }
@@ -64,7 +41,7 @@ button, input, textarea, select {
   --theme-color: #E60012;
   --theme-color-hover: #cc0010;
   --theme-color-light: #fff1f0;
-  /* 覆盖 Element Plus 默认字体变量，使按钮/输入框等组件与正文统一使用鸿蒙黑体 */
-  --el-font-family: 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', Arial, Helvetica, sans-serif;
+  /* 覆盖 Element Plus 默认字体变量，使按钮/输入框等组件与正文统一 */
+  --el-font-family: Roboto, 'Noto Sans', 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 </style>
