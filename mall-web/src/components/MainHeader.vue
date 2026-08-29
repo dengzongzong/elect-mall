@@ -731,20 +731,29 @@ async function fetchFeaturedBrands() {
   gap: 6px;
   cursor: pointer;
   padding: 10px 8px;
+  background: #fff;
   border: 1px solid #f0f0f0;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .brand-logo-item:hover {
   border-color: var(--theme-color);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 10px rgba(230, 0, 18, 0.12);
 }
 
 .brand-logo {
-  width: 64px;
-  height: 32px;
+  width: 72px;
+  height: 34px;
   object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.65;
+  transition: filter 0.3s, opacity 0.3s;
+}
+
+.brand-logo-item:hover .brand-logo {
+  filter: grayscale(0);
+  opacity: 1;
 }
 
 .brand-logo-name {

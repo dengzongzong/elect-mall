@@ -676,27 +676,36 @@ function handleAddToCart(product) {
 }
 
 .brand-item {
-  height: 80px;
+  height: 84px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
-  padding: 8px;
+  padding: 10px 12px;
 }
 
 .brand-item:hover {
   border-color: var(--theme-color);
-  box-shadow: 0 4px 12px rgba(230, 0, 18, 0.1);
+  box-shadow: 0 4px 16px rgba(230, 0, 18, 0.12);
+  transform: translateY(-2px);
 }
 
 .brand-logo {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.65;
+  transition: filter 0.3s, opacity 0.3s;
+}
+
+.brand-item:hover .brand-logo {
+  filter: grayscale(0);
+  opacity: 1;
 }
 
 .brand-logo-text {
