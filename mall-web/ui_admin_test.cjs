@@ -1,7 +1,21 @@
 // 管理后台(admin-web:8081) UI 增删改查测试
 const { chromium } = require('playwright-core');
+const { execSync } = require('child_process');
 const CHROME = 'C:/Users/MateBook D/AppData/Local/ms-playwright/chromium-1234/chrome-win64/chrome.exe';
 const BASE = 'http://localhost:8081';
+
+// 直接查 mall_db 验证真实落库（-N 去掉表头）
+// 注意：execSync 默认用 cmd.exe，不能用 /dev/null 重定向，用 stdio 忽略 stderr
+const MYSQL = '"E:/yejing/mysql-8.4.3-winx64/bin/mysql.exe"';
+function dbQuery(sql) {
+  const safeSql = sql.replace(/"/g, '\\"');
+  try {
+    const out = execSync(`${MYSQL} -uroot -p123456 mall_db -N -e "${safeSql}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
+    return out.toString().trim();
+  } catch (e) {
+    return 'ERR';
+  }
+}
 
 const results = [];
 function rec(mod, action, ok, note) {
@@ -52,13 +66,17 @@ const ROUTES = ['dashboard','product','category','brand','bom','inquiry','order'
   await page.waitForTimeout(1500);
   const brandInList = (await page.locator('.el-table__row', { hasText: brandMark }).count()) > 0;
   rec('品牌', 'C 新增', brandInList, brandMark);
+  const dbBrandCnt = dbQuery(`SELECT COUNT(*) FROM brand WHERE name='${brandMark}' AND (deleted=0 OR deleted IS NULL)`);
+  rec('品牌', 'DB真实落库', dbBrandCnt !== 'ERR' && Number(dbBrandCnt) > 0, `brand表=${dbBrandCnt}条`);
   if (brandInList) {
     await page.locator('.el-table__row', { hasText: brandMark }).getByRole('button', { name: '删除' }).click();
     await page.waitForTimeout(800);
     await page.locator('.el-message-box .el-button--primary').click();
     await page.waitForTimeout(1500);
     const brandGone = (await page.locator('.el-table__row', { hasText: brandMark }).count()) === 0;
+    const dbBrandAfter = dbQuery(`SELECT COUNT(*) FROM brand WHERE name='${brandMark}' AND (deleted=0 OR deleted IS NULL)`);
     rec('品牌', 'D 删除', brandGone, brandGone ? '已删除' : '删除后仍存在');
+    rec('品牌', 'DB删除生效', dbBrandAfter !== 'ERR' && Number(dbBrandAfter) === 0, `brand表=${dbBrandAfter}条`);
   }
 
   // ---------- 分类 CRUD ----------
@@ -73,13 +91,17 @@ const ROUTES = ['dashboard','product','category','brand','bom','inquiry','order'
   await page.waitForTimeout(1800);
   const catInList = (await page.locator('.el-table__row', { hasText: catMark }).count()) > 0;
   rec('分类', 'C 新增', catInList, catMark);
+  const dbCatCnt = dbQuery(`SELECT COUNT(*) FROM category WHERE name='${catMark}'`);
+  rec('分类', 'DB真实落库', dbCatCnt !== 'ERR' && Number(dbCatCnt) > 0, `category表=${dbCatCnt}条`);
   if (catInList) {
     await page.locator('.el-table__row', { hasText: catMark }).getByRole('button', { name: '删除' }).click();
     await page.waitForTimeout(800);
     await page.locator('.el-message-box .el-button--primary').click();
     await page.waitForTimeout(1800);
     const catGone = (await page.locator('.el-table__row', { hasText: catMark }).count()) === 0;
+    const dbCatAfter = dbQuery(`SELECT COUNT(*) FROM category WHERE name='${catMark}'`);
     rec('分类', 'D 删除', catGone, catGone ? '已删除' : '删除后仍存在');
+    rec('分类', 'DB删除生效', dbCatAfter !== 'ERR' && Number(dbCatAfter) === 0, `category表=${dbCatAfter}条`);
   }
 
   // ---------- 商品 CRUD ----------
@@ -97,13 +119,17 @@ const ROUTES = ['dashboard','product','category','brand','bom','inquiry','order'
   await page.waitForTimeout(2000);
   const prodInList = (await page.locator('.el-table__row', { hasText: prodMark }).count()) > 0;
   rec('商品', 'C 新增', prodInList, prodMark);
+  const dbProdCnt = dbQuery(`SELECT COUNT(*) FROM product WHERE name='${prodMark}'`);
+  rec('商品', 'DB真实落库', dbProdCnt !== 'ERR' && Number(dbProdCnt) > 0, `product表=${dbProdCnt}条`);
   if (prodInList) {
     await page.locator('.el-table__row', { hasText: prodMark }).getByRole('button', { name: '删除' }).click();
     await page.waitForTimeout(800);
     await page.locator('.el-message-box .el-button--primary').click();
     await page.waitForTimeout(2000);
     const prodGone = (await page.locator('.el-table__row', { hasText: prodMark }).count()) === 0;
+    const dbProdAfter = dbQuery(`SELECT COUNT(*) FROM product WHERE name='${prodMark}'`);
     rec('商品', 'D 删除', prodGone, prodGone ? '已删除' : '删除后仍存在');
+    rec('商品', 'DB删除生效', dbProdAfter !== 'ERR' && Number(dbProdAfter) === 0, `product表=${dbProdAfter}条`);
   }
 
   console.log('\n==== JS 报错 ====');
