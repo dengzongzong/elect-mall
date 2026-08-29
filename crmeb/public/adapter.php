@@ -227,8 +227,32 @@ $routes = [
         checkLogin(); $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
-        $stmt = $db->prepare("UPDATE category SET name=?, description=?, parent_id=?, prefix=?, sort=?, status=? WHERE id=?");
-        $stmt->execute([$data['name'] ?? '', $data['description'] ?? '', $data['parentId'] ?? $data['parent_id'] ?? 0, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1, $id]);
+        // 只更新请求中显式传入的字段。
+        // 之前是全字段覆盖，若调用方漏传 parentId（如后台「编辑详情」只提交 id/name/description），
+        // parent_id 会被写成 0，导致子分类被挂到最顶层。
+        $fieldMap = [
+            'name' => 'name',
+            'description' => 'description',
+            'parentId' => 'parent_id',
+            'parent_id' => 'parent_id',
+            'prefix' => 'prefix',
+            'sort' => 'sort',
+            'status' => 'status',
+        ];
+        $columns = [];
+        $params = [];
+        foreach ($fieldMap as $key => $column) {
+            if (!array_key_exists($key, $data)) continue;
+            if (in_array($column, $columns, true)) continue;
+            $columns[] = $column;
+            $params[] = $data[$key];
+        }
+        if (!$columns) error('没有需要更新的字段');
+        // 列名来自上面的白名单常量，不含用户输入，可安全拼接
+        $sql = 'UPDATE category SET ' . implode(' = ?, ', $columns) . ' = ?, updated_at = NOW() WHERE id = ?';
+        $params[] = $id;
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
         success(null, '保存成功');
     },
     'DELETE category/delete' => function() {

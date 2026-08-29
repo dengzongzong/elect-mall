@@ -81,7 +81,7 @@
     <el-dialog
       v-model="descDialogVisible"
       title="编辑分类详情"
-      width="860px"
+      width="960px"
       :close-on-click-modal="false"
       :before-close="beforeCloseDescDialog"
     >
@@ -89,10 +89,14 @@
         <el-form-item label="分类名称">
           <el-tag>{{ descForm.name }}</el-tag>
         </el-form-item>
+        <el-form-item label="分类层级">
+          <el-tag type="info" size="small">{{ descForm.parentName || '1级-大类' }}</el-tag>
+        </el-form-item>
         <el-form-item label="分类详情">
           <div class="desc-editor">
             <QuillEditor
               ref="quillRef"
+              :key="editorKey"
               v-model:content="descForm.description"
               content-type="html"
               :options="editorOptions"
@@ -175,9 +179,16 @@ const descDialogVisible = ref(false)
 const descForm = ref({
   id: null,
   name: '',
-  description: ''
+  description: '',
+  parentId: 0,
+  parentName: '',
+  prefix: '',
+  sort: 0,
+  status: 1
 })
 const quillRef = ref(null)
+// 每次打开详情对话框递增，强制重建 Quill 实例，保证不同分类的编辑内容互不串扰
+const editorKey = ref(0)
 
 const editorOptions = {
   modules: {
@@ -248,6 +259,18 @@ async function fetchCategories() {
   }
 }
 
+// 在树形分类中查找指定 id 的分类
+function findParent(id, list) {
+  for (const item of list) {
+    if (String(item.id) === String(id)) return item
+    if (item.children) {
+      const found = findParent(id, item.children)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 function openDialog(title, row) {
   dialogTitle.value = title
   form.value = {
@@ -274,11 +297,22 @@ function handleAddSub(row) {
 }
 
 function handleEditDescription(row) {
+  const parentId = row.parent_id ?? row.parentId ?? 0
   descForm.value = {
     id: row.id,
     name: row.name,
-    description: row.description || ''
+    description: row.description || '',
+    // 必须带上 parentId：后端是全字段更新，缺省时会被写成 0，导致子类被挂到顶层
+    parentId,
+    parentName: (parentId && parentId !== '0')
+      ? (findParent(parentId, tableData.value)?.name || '')
+      : '',
+    prefix: row.prefix || '',
+    sort: row.sort ?? 0,
+    status: row.status ?? 1
   }
+  // 重建编辑器实例，确保切换到另一个分类时内容是该分类自己的
+  editorKey.value++
   descDialogVisible.value = true
 }
 
@@ -287,17 +321,6 @@ function handlePreview(row) {
     name: row.name,
     description: row.description || '',
     _row: row
-  }
-  // 查找父分类
-  const findParent = (id, list) => {
-    for (const item of list) {
-      if (item.id === id) return item
-      if (item.children) {
-        const found = findParent(id, item.children)
-        if (found) return found
-      }
-    }
-    return null
   }
   previewParent.value = row.parent_id && row.parent_id !== '0'
     ? findParent(row.parent_id, tableData.value)
@@ -398,22 +421,22 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* 注意：.rich-editor 与 Quill 的 .quill 是同一个元素（class 被合并到组件根节点），
+   所以 :deep() 里不能再带 .quill 前缀，否则选择器要求 .quill 是其后代、永远匹配不到，
+   之前写的 min-height 之所以一直没生效就是这个原因。 */
 .rich-editor {
-  min-height: 550px;
+  min-height: 580px;
   background: #fff;
 }
 
-:deep(.quill) {
-  height: auto;
-}
-
-:deep(.quill .ql-container) {
-  min-height: 480px;
+:deep(.ql-container) {
+  height: 520px;
   font-size: 14px;
 }
 
-:deep(.quill .ql-editor) {
-  min-height: 480px;
+:deep(.ql-editor) {
+  min-height: 520px;
+  overflow-y: auto;
 }
 
 .desc-upload {
