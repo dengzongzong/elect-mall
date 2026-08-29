@@ -36,8 +36,21 @@ function getDB() {
     return $db;
 }
 
+// 递归把超过 JS Number.MAX_SAFE_INTEGER(9007199254740991) 的整数转为字符串。
+// 雪花ID为19位，若以 number 输出，前端 JSON.parse 后精度丢失，会导致
+// id 碰撞、详情接口查不到数据等问题（新闻/商品列表均因此出现过「不存在」）。
+function castBigIntToString($value) {
+    if (is_array($value)) {
+        return array_map('castBigIntToString', $value);
+    }
+    if (is_int($value) && abs($value) > 9007199254740991) {
+        return (string)$value;
+    }
+    return $value;
+}
+
 function jsonResponse($code = 200, $msg = 'success', $data = null, $success = true) {
-    $result = ['code' => $code, 'msg' => $msg, 'data' => $data, 'success' => $success];
+    $result = ['code' => $code, 'msg' => $msg, 'data' => castBigIntToString($data), 'success' => $success];
     if ($data === null && $code === 200) {
         unset($result['data']);
     }
