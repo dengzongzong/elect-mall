@@ -36,6 +36,13 @@ export function getRecommendProducts(productId, limit = 8) {
 }
 
 /**
+ * 批量获取商品（产品对比用）
+ */
+export function compareProducts(ids) {
+  return request.post('/product/compare', { ids })
+}
+
+/**
  * 获取品牌列表
  */
 export function getBrands() {

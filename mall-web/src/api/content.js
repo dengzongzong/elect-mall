@@ -55,3 +55,10 @@ export function submitPartnerApply(data) {
 export function getCarousels() {
   return request.get('/carousel/public/list')
 }
+
+/**
+ * 获取首页区块配置（侧边广告 / 卖点）
+ */
+export function getHomeBlocks() {
+  return request.get('/home/blocks')
+}

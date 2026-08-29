@@ -178,7 +178,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useCartStore } from '../stores/cart'
-import { getCategories } from '../api/product'
+import { getCategories, getBrands } from '../api/product'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -310,16 +310,20 @@ onMounted(() => {
   fetchCategories()
   // 已登录时以服务端购物车为准，保证角标数量准确
   cartStore.syncFromServer()
-  // 获取推荐品牌（前端硬编码一些知名品牌供展示）
-  featuredBrands.value = [
-    { id: 1, name: 'muRata', logo: '/logo.jpg' },
-    { id: 2, name: 'TDK', logo: '/logo.jpg' },
-    { id: 3, name: 'Taiyo Yuden', logo: '/logo.jpg' },
-    { id: 4, name: 'SAMSUNG', logo: '/logo.jpg' },
-    { id: 5, name: 'Yageo', logo: '/logo.jpg' },
-    { id: 6, name: 'FH(风华)', logo: '/logo.jpg' },
-  ]
+  // 推荐品牌从后端拉取（优先合作品牌，最多 6 个）
+  fetchFeaturedBrands()
 })
+
+async function fetchFeaturedBrands() {
+  try {
+    const res = await getBrands()
+    const list = Array.isArray(res) ? res : []
+    const coop = list.filter((b) => Number(b.is_cooperate) === 1)
+    featuredBrands.value = (coop.length ? coop : list).slice(0, 6)
+  } catch (e) {
+    featuredBrands.value = []
+  }
+}
 </script>
 
 <style scoped>

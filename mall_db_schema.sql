@@ -398,6 +398,25 @@ CREATE TABLE `user_part_no` (
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户常用型号表';
 
+CREATE TABLE `home_block` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `block_key` varchar(32) NOT NULL COMMENT '区块：side_ad侧边广告 / feature卖点',
+  `title` varchar(100) DEFAULT NULL COMMENT '标题',
+  `desc` varchar(255) DEFAULT NULL COMMENT '描述',
+  `tag` varchar(32) DEFAULT NULL COMMENT '角标',
+  `tag_bg` varchar(32) DEFAULT NULL COMMENT '角标颜色',
+  `link` varchar(255) DEFAULT NULL COMMENT '跳转链接',
+  `bg` varchar(255) DEFAULT NULL COMMENT '背景渐变',
+  `icon` varchar(32) DEFAULT NULL COMMENT '图标名',
+  `sort` int DEFAULT '0' COMMENT '排序',
+  `status` tinyint DEFAULT '1' COMMENT '状态',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `updated_at` datetime NOT NULL COMMENT '更新时间',
+  `deleted` tinyint(1) DEFAULT '0' COMMENT '逻辑删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_block` (`block_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='首页区块配置';
+
 CREATE TABLE `user_address` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `user_id` bigint NOT NULL COMMENT '用户ID',

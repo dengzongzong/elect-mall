@@ -36,7 +36,7 @@
           <div class="banner-carousel">
             <el-carousel :interval="4000" height="400px" indicator-position="none">
               <el-carousel-item v-for="(banner, idx) in banners" :key="idx">
-                <div class="banner-slide" :style="{ background: bannerColors[idx % bannerColors.length] }">
+                <div class="banner-slide" :style="{ background: banner.color || bannerColors[idx % bannerColors.length] }">
                   <div class="banner-content">
                     <h2>{{ banner.title }}</h2>
                     <p>{{ banner.subtitle || banner.title }}</p>
@@ -57,7 +57,7 @@
               target="_blank"
             >
               <div class="ad-content">
-                <span class="ad-tag" :style="{ background: ad.tagBg }">{{ ad.tag }}</span>
+                <span class="ad-tag" :style="{ background: ad.tagBg || ad.tag_bg }">{{ ad.tag }}</span>
                 <h4 class="ad-title">{{ ad.title }}</h4>
                 <p class="ad-desc">{{ ad.desc }}</p>
               </div>
@@ -71,7 +71,7 @@
     <div class="features-section">
       <div class="container">
         <div class="features-grid">
-          <div class="feature-card" v-for="f in features" :key="f.title">
+          <div class="feature-card" v-for="f in features" :key="f.id ?? f.title">
             <el-icon class="feature-icon"><component :is="f.icon" /></el-icon>
             <div class="feature-info">
               <h4>{{ f.title }}</h4>
@@ -162,7 +162,7 @@ import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
 import { getCategories, getBrands, getProducts } from '../api/product'
-import { getNewsList, getCarousels } from '../api/content'
+import { getNewsList, getCarousels, getHomeBlocks } from '../api/content'
 
 const cartStore = useCartStore()
 const activeCat = ref(null)
@@ -256,6 +256,7 @@ function goLink(url) {
 }
 
 const banners = ref([])
+// 默认轮播配色（仅当后端未配置 carousel.color 时兜底）
 const bannerColors = [
   'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)',
   'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)',
@@ -267,29 +268,25 @@ const bannerColors = [
   'linear-gradient(135deg, #2f54eb 0%, #85a5ff 100%)',
 ]
 
-const sideAds = [
-  { title: 'BOM 配单报价', desc: '上传BOM清单，2小时快速报价', tag: '热门服务', tagBg: '#E60012', link: '#', bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' },
-  { title: '免费样品申请', desc: '工程师专享，免费样品送到家', tag: '限时活动', tagBg: '#fa8c16', link: '#', bg: 'linear-gradient(135deg, #2d1b00 0%, #4a2800 100%)' },
-  { title: '技术资料下载', desc: '数据手册、参考设计、应用笔记', tag: '资源中心', tagBg: '#1677ff', link: '#', bg: 'linear-gradient(135deg, #001529 0%, #003a70 100%)' },
-  { title: '在线技术支持', desc: '资深工程师在线答疑，快速响应', tag: '技术支持', tagBg: '#52c41a', link: '#', bg: 'linear-gradient(135deg, #092b00 0%, #1a5200 100%)' },
-]
-
-const features = [
-  { icon: 'CircleCheck', title: '品质保证', desc: '100%原装正品，专业检测' },
-  { icon: 'Clock', title: '极速发货', desc: '当天16:00前下单，当天发货' },
-  { icon: 'Cpu', title: '型号齐全', desc: '50万+现货型号，一应俱全' },
-  { icon: 'List', title: '一站式采购', desc: 'BOM配单，批量采购更省心' },
-]
+// 侧边广告与卖点由后端 home_block 配置驱动
+const sideAds = ref([])
+const features = ref([])
 
 async function fetchHomeData() {
   try {
-    const [catRes, brandRes, productRes, newsRes, carouselRes] = await Promise.allSettled([
+    const [catRes, brandRes, productRes, newsRes, carouselRes, blockRes] = await Promise.allSettled([
       getCategories(),
       getBrands(),
       getProducts({ page: 1, size: 8, orderBy: 'created_at', orderDir: 'desc' }),
       getNewsList(),
       getCarousels(),
+      getHomeBlocks(),
     ])
+
+    if (blockRes.status === 'fulfilled' && blockRes.value) {
+      sideAds.value = Array.isArray(blockRes.value.side_ads) ? blockRes.value.side_ads : []
+      features.value = Array.isArray(blockRes.value.features) ? blockRes.value.features : []
+    }
 
     if (catRes.status === 'fulfilled' && catRes.value) {
       categories.value = catRes.value

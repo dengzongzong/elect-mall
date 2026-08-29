@@ -734,6 +734,23 @@ $routes = [
         if (!$product) error('商品不存在', 404);
         success($product);
     },
+    // 批量取商品（产品对比页用），含品牌名
+    'POST product/compare' => function() {
+        $data = getInput();
+        $ids = $data['ids'] ?? [];
+        if (empty($ids)) error('请至少选择一个商品');
+        $ids = array_values(array_filter(array_map('intval', (array)$ids)));
+        if (empty($ids)) error('请至少选择一个商品');
+        $db = getDB();
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, b.name as brand_name
+                              FROM product p
+                              LEFT JOIN category c ON p.category_id = c.id
+                              LEFT JOIN brand b ON p.brand_id = b.id
+                              WHERE p.id IN ($ph) AND (p.deleted = 0 OR p.deleted IS NULL)");
+        $stmt->execute($ids);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
     'GET brand/list' => function() {
         $db = getDB();
         $stmt = $db->query("SELECT * FROM brand WHERE deleted = 0 AND status = 1 ORDER BY sort ASC");
@@ -1272,6 +1289,17 @@ $routes = [
         $db = getDB();
         $stmt = $db->query("SELECT * FROM carousel WHERE status = 1 ORDER BY sort ASC, id DESC");
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    // 首页区块配置（侧边广告 / 卖点文案），按 block_key 分组返回
+    'GET home/blocks' => function() {
+        $db = getDB();
+        $rows = $db->query("SELECT * FROM home_block WHERE status = 1 AND (deleted = 0 OR deleted IS NULL) ORDER BY sort ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+        $result = ['side_ads' => [], 'features' => []];
+        foreach ($rows as $r) {
+            if ($r['block_key'] === 'side_ad') $result['side_ads'][] = $r;
+            elseif ($r['block_key'] === 'feature') $result['features'][] = $r;
+        }
+        success($result);
     },
     'POST carousel/add' => function() {
         checkLogin();
