@@ -1,11 +1,9 @@
 <template>
   <router-view />
-  <RightSidebar />
   <CustomerService />
 </template>
 
 <script setup>
-import RightSidebar from './components/RightSidebar.vue'
 import CustomerService from './components/CustomerService.vue'
 </script>
 
