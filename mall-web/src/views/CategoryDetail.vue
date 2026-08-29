@@ -1,5 +1,6 @@
 <template>
   <div class="category-detail">
+    <MainHeader />
     <div class="container">
       <!-- 面包屑导航 -->
       <div class="breadcrumb" v-if="category">
@@ -32,12 +33,15 @@
         </el-button>
       </div>
     </div>
+    <MainFooter />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import MainHeader from '../components/MainHeader.vue'
+import MainFooter from '../components/MainFooter.vue'
 import { getCategoryDetail, getCategories } from '../api/product'
 
 const route = useRoute()

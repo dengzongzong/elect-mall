@@ -408,7 +408,7 @@ async function fetchFeaturedBrands() {
 }
 
 .logo-img {
-  height: 40px;
+  height: 56px;
   width: auto;
 }
 
