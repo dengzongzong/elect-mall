@@ -141,7 +141,7 @@
                     @click="goToCategoryDetail(item)"
                     @mousedown.prevent
                   >
-                    {{ item.name || item }}
+                    {{ displayItemName(item) }}
                   </div>
                 </div>
               </div>
@@ -264,12 +264,28 @@ function goToCategory(catId) {
   router.push({ path: `/category/${catId}` })
 }
 
+function resolveItem(item) {
+  if (typeof item === 'string') {
+    try {
+      return JSON.parse(item)
+    } catch (e) {
+      return { name: item, id: item }
+    }
+  }
+  return item || {}
+}
+
+function displayItemName(item) {
+  const resolved = resolveItem(item)
+  return resolved.name || resolved.id || item || ''
+}
+
 function goToCategoryDetail(item) {
   showMegaMenu.value = false
   activeL1Id.value = null
   activeL2Id.value = null
-  const itemId = typeof item === 'object' ? item.id : item
-  router.push(`/category/detail/${itemId}`)
+  const resolved = resolveItem(item)
+  router.push(`/category/detail/${resolved.id}`)
 }
 
 function onBrandImgError(e) {
