@@ -3,10 +3,13 @@
     <div class="section-card">
       <div class="card-header">
         <h4>收货地址</h4>
-        <el-button type="danger" @click="showDialog = true">新增地址</el-button>
+        <el-button type="danger" @click="openAdd">新增地址</el-button>
       </div>
-      <div class="address-list">
-        <div class="address-item" v-for="(addr, idx) in addresses" :key="idx">
+      <div class="empty-state" v-if="addresses.length === 0">
+        <p>暂无收货地址，点击右上角「新增地址」添加</p>
+      </div>
+      <div class="address-list" v-else>
+        <div class="address-item" v-for="(addr, idx) in addresses" :key="addr.id ?? idx">
           <div class="addr-info">
             <div class="addr-name">
               <span class="name">{{ addr.name }}</span>
@@ -23,7 +26,7 @@
       </div>
     </div>
 
-    <el-dialog v-model="showDialog" title="新增地址" width="500px">
+    <el-dialog v-model="showDialog" :title="editingId ? '编辑地址' : '新增地址'" width="500px">
       <el-form :model="form" label-width="80px">
         <el-form-item label="收货人">
           <el-input v-model="form.name" />
@@ -43,17 +46,20 @@
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="danger" @click="handleSave">保存</el-button>
+        <el-button type="danger" :loading="saving" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAddressList, addAddress, updateAddress, deleteAddress } from '../api/user'
 
 const showDialog = ref(false)
+const saving = ref(false)
+const editingId = ref(null)
 
 const form = reactive({
   name: '',
@@ -63,31 +69,109 @@ const form = reactive({
   isDefault: false,
 })
 
+// value 与 label 一致，便于直接作为 province/city/district 存库
 const regionOptions = [
-  { value: 'guangdong', label: '广东省', children: [{ value: 'shenzhen', label: '深圳市', children: [{ value: 'nanshan', label: '南山区' }, { value: 'futian', label: '福田区' }] }] },
-  { value: 'beijing', label: '北京市', children: [{ value: 'beijing', label: '北京市', children: [{ value: 'haidian', label: '海淀区' }, { value: 'chaoyang', label: '朝阳区' }] }] },
+  { value: '广东省', label: '广东省', children: [
+    { value: '深圳市', label: '深圳市', children: [{ value: '南山区', label: '南山区' }, { value: '福田区', label: '福田区' }] },
+    { value: '广州市', label: '广州市', children: [{ value: '天河区', label: '天河区' }] },
+  ] },
+  { value: '北京市', label: '北京市', children: [
+    { value: '北京市', label: '北京市', children: [{ value: '海淀区', label: '海淀区' }, { value: '朝阳区', label: '朝阳区' }] },
+  ] },
 ]
 
-const addresses = ref([
-  { name: '张三', phone: '138****8888', province: '广东省', city: '深圳市', district: '南山区', detail: '科技园南路100号', isDefault: true },
-  { name: '李四', phone: '139****9999', province: '北京市', city: '北京市', district: '海淀区', detail: '中关村大街1号', isDefault: false },
-])
+const addresses = ref([])
+
+async function fetchAddresses() {
+  try {
+    const res = await getAddressList()
+    const list = Array.isArray(res) ? res : []
+    // 后端字段为 is_default，统一成 isDefault 便于模板使用
+    addresses.value = list.map(a => ({ ...a, isDefault: !!a.isDefault || !!a.is_default }))
+  } catch (e) {
+    addresses.value = []
+  }
+}
+
+function resetForm() {
+  form.name = ''
+  form.phone = ''
+  form.region = []
+  form.detail = ''
+  form.isDefault = false
+}
 
 function handleEdit(idx) {
-  ElMessage.info('编辑地址功能')
+  const addr = addresses.value[idx]
+  editingId.value = addr.id
+  form.name = addr.name || ''
+  form.phone = addr.phone || ''
+  form.region = [addr.province, addr.city, addr.district].filter(Boolean)
+  form.detail = addr.detail || ''
+  form.isDefault = !!addr.isDefault
+  showDialog.value = true
 }
 
-function handleDelete(idx) {
-  ElMessageBox.confirm('确定删除该地址吗？', '提示', { type: 'warning' }).then(() => {
-    addresses.value.splice(idx, 1)
+async function handleDelete(idx) {
+  const addr = addresses.value[idx]
+  try {
+    await ElMessageBox.confirm('确定删除该地址吗？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteAddress(addr.id)
     ElMessage.success('已删除')
-  }).catch(() => {})
+    await fetchAddresses()
+  } catch (e) {
+    ElMessage.error('删除失败')
+  }
 }
 
-function handleSave() {
-  showDialog.value = false
-  ElMessage.success('地址已保存')
+async function handleSave() {
+  if (!form.name || !form.phone) {
+    ElMessage.warning('请填写收货人和手机号')
+    return
+  }
+  saving.value = true
+  try {
+    const [province = '', city = '', district = ''] = form.region
+    const payload = {
+      name: form.name,
+      phone: form.phone,
+      province,
+      city,
+      district,
+      detail: form.detail,
+      isDefault: form.isDefault ? 1 : 0,
+    }
+    if (editingId.value) {
+      await updateAddress({ ...payload, id: editingId.value })
+    } else {
+      await addAddress(payload)
+    }
+    ElMessage.success(editingId.value ? '地址已更新' : '地址已保存')
+    showDialog.value = false
+    editingId.value = null
+    resetForm()
+    await fetchAddresses()
+  } catch (e) {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
 }
+
+// 打开新增前重置表单
+const openAdd = () => {
+  editingId.value = null
+  resetForm()
+  showDialog.value = true
+}
+
+onMounted(() => {
+  fetchAddresses()
+})
 </script>
 
 <style scoped>
@@ -159,5 +243,12 @@ function handleSave() {
 .addr-actions {
   display: flex;
   gap: 8px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px 0;
+  color: #999;
+  font-size: 14px;
 }
 </style>

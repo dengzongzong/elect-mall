@@ -23,7 +23,7 @@
           <el-input v-model="form.contact" placeholder="手机号或邮箱，以便我们回复您" style="width: 300px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="danger" @click="handleSubmit">提交</el-button>
+          <el-button type="danger" :loading="submitting" @click="handleSubmit">提交</el-button>
           <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
@@ -32,8 +32,11 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { submitFeedback } from '../api/user'
+
+const submitting = ref(false)
 
 const form = reactive({
   type: 'product',
@@ -42,9 +45,21 @@ const form = reactive({
   contact: '',
 })
 
-function handleSubmit() {
-  ElMessage.success('感谢您的反馈，我们会尽快处理！')
-  handleReset()
+async function handleSubmit() {
+  if (!form.content.trim()) {
+    ElMessage.warning('请填写反馈内容')
+    return
+  }
+  submitting.value = true
+  try {
+    await submitFeedback({ ...form })
+    ElMessage.success('感谢您的反馈，我们会尽快处理！')
+    handleReset()
+  } catch (e) {
+    ElMessage.error('提交失败，请稍后重试')
+  } finally {
+    submitting.value = false
+  }
 }
 
 function handleReset() {

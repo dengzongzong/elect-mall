@@ -3,11 +3,11 @@
     <div class="section-card">
       <h4>我的收藏</h4>
       <div class="favorite-grid" v-if="favorites.length > 0">
-        <div class="favorite-item" v-for="f in favorites" :key="f.id" @click="$router.push(`/product/${f.id}`)">
+        <div class="favorite-item" v-for="f in favorites" :key="f.id" @click="$router.push(`/product/${f.product_id}`)">
           <div class="fav-img"><el-icon><Cpu /></el-icon></div>
           <div class="fav-info">
             <h5>{{ f.name }}</h5>
-            <p class="fav-model">{{ f.model }}</p>
+            <p class="fav-model">{{ f.part_no }}</p>
             <p class="fav-price">￥{{ f.price }}</p>
           </div>
           <el-button link type="danger" class="fav-remove" @click.stop="handleRemove(f.id)">删除</el-button>
@@ -23,19 +23,38 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { getFavoriteList, deleteFavorite } from '../api/user'
 
-const favorites = ref([
-  { id: 1, name: 'STM32F103C8T6', model: 'ARM Cortex-M3', price: 8.50 },
-  { id: 2, name: 'ESP32-WROOM-32', model: 'WiFi+BT模块', price: 18.00 },
-  { id: 3, name: 'LM2596S-ADJ', model: 'DC-DC降压', price: 3.20 },
-])
+const favorites = ref([])
+const loading = ref(false)
 
-function handleRemove(id) {
-  favorites.value = favorites.value.filter(f => f.id !== id)
-  ElMessage.success('已取消收藏')
+async function fetchFavorites() {
+  loading.value = true
+  try {
+    const res = await getFavoriteList()
+    favorites.value = Array.isArray(res) ? res : []
+  } catch (e) {
+    favorites.value = []
+  } finally {
+    loading.value = false
+  }
 }
+
+async function handleRemove(id) {
+  try {
+    await deleteFavorite(id)
+    ElMessage.success('已取消收藏')
+    await fetchFavorites()
+  } catch (e) {
+    ElMessage.error('取消收藏失败')
+  }
+}
+
+onMounted(() => {
+  fetchFavorites()
+})
 </script>
 
 <style scoped>

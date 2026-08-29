@@ -78,6 +78,20 @@ function getQuery() {
     return $_GET;
 }
 
+// 批量取订单明细，返回 [order_id => [item, ...]]
+function getOrderItemsMap($db, $orderIds) {
+    $orderIds = array_values(array_filter((array)$orderIds));
+    if (empty($orderIds)) return [];
+    $ph = implode(',', array_fill(0, count($orderIds), '?'));
+    $stmt = $db->prepare("SELECT * FROM order_item WHERE order_id IN ($ph) ORDER BY id ASC");
+    $stmt->execute($orderIds);
+    $map = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $map[$row['order_id']][] = $row;
+    }
+    return $map;
+}
+
 // 添加token解析
 function getTokenFromRequest() {
     $token = $_SERVER['HTTP_TOKEN'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
@@ -801,12 +815,40 @@ $routes = [
         if ($userId <= 0) error('未登录', 401);
         $data = getInput();
         $db = getDB();
+
+        // 以服务端购物车为准计算商品明细与金额（前端金额不可信）
+        $stmt = $db->prepare("SELECT c.product_id, c.quantity, p.name, p.part_no, p.price
+                              FROM cart c LEFT JOIN product p ON c.product_id = p.id
+                              WHERE c.user_id = ? AND (c.deleted = 0 OR c.deleted IS NULL)");
+        $stmt->execute([$userId]);
+        $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $calcTotal = 0;
+        foreach ($cartItems as $ci) {
+            $calcTotal += (float)$ci['price'] * (int)$ci['quantity'];
+        }
+        $total = $calcTotal > 0 ? $calcTotal : ($data['totalAmount'] ?? $data['total_amount'] ?? 0);
+
         $orderNo = 'ORD' . date('YmdHis') . rand(1000, 9999);
         // order 表收货地址列名为 receiver_address（另含 receiver_name/receiver_phone）
-        $stmt = $db->prepare("INSERT INTO `order` (order_no, user_id, total_amount, status, receiver_address, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([$orderNo, $userId, $data['totalAmount'] ?? $data['total_amount'] ?? 0, 'pending', $data['address'] ?? '', $data['remark'] ?? '']);
+        $stmt = $db->prepare("INSERT INTO `order` (order_no, user_id, total_amount, status, receiver_address, receiver_name, receiver_phone, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([
+            $orderNo, $userId, $total, 'pending',
+            $data['address'] ?? '',
+            $data['receiverName'] ?? $data['name'] ?? '',
+            $data['receiverPhone'] ?? $data['phone'] ?? '',
+            $data['remark'] ?? '',
+        ]);
         $orderId = $db->lastInsertId();
-        success(['id' => $orderId, 'order_no' => $orderNo], '下单成功');
+
+        // 写入订单明细，并清空购物车
+        foreach ($cartItems as $ci) {
+            $subtotal = (float)$ci['price'] * (int)$ci['quantity'];
+            $db->prepare("INSERT INTO order_item (order_id, product_id, part_no, product_name, quantity, price, subtotal, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())")
+                ->execute([$orderId, $ci['product_id'], $ci['part_no'], $ci['name'], $ci['quantity'], $ci['price'], $subtotal]);
+        }
+        $db->prepare("DELETE FROM cart WHERE user_id = ?")->execute([$userId]);
+
+        success(['id' => $orderId, 'order_no' => $orderNo, 'total' => $total, 'itemCount' => count($cartItems)], '下单成功');
     },
     'GET order/list' => function() {
         $token = getTokenFromRequest();
@@ -822,7 +864,11 @@ $routes = [
         $stmt->bindValue(2, $size, PDO::PARAM_INT);
         $stmt->bindValue(3, $offset, PDO::PARAM_INT);
         $stmt->execute();
-        success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $itemsMap = getOrderItemsMap($db, array_column($records, 'id'));
+        foreach ($records as &$r) { $r['items'] = $itemsMap[$r['id']] ?? []; }
+        unset($r);
+        success(['records' => $records, 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'GET order/{id}' => function($id) {
         $db = getDB();
@@ -830,6 +876,8 @@ $routes = [
         $stmt->execute([$id]);
         $order = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$order) error('订单不存在', 404);
+        $itemsMap = getOrderItemsMap($db, [$order['id']]);
+        $order['items'] = $itemsMap[$order['id']] ?? [];
         success($order);
     },
     'POST order/cancel' => function() {
@@ -924,7 +972,7 @@ $routes = [
         $userId = $parts[0] ?? 0;
         if ($userId <= 0) error('未登录', 401);
         $db = getDB();
-        $stmt = $db->prepare("SELECT f.*, p.name, p.price, p.image_url, p.part_no FROM user_favorite f LEFT JOIN product p ON f.product_id = p.id WHERE f.user_id = ? ORDER BY f.id DESC");
+        $stmt = $db->prepare("SELECT f.*, p.name, p.price, p.image_url, p.part_no FROM favorite f LEFT JOIN product p ON f.product_id = p.id WHERE f.user_id = ? AND (f.deleted = 0 OR f.deleted IS NULL) ORDER BY f.id DESC");
         $stmt->execute([$userId]);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
@@ -935,7 +983,7 @@ $routes = [
         if ($userId <= 0) error('未登录', 401);
         $data = getInput();
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO user_favorite (user_id, product_id, created_at) VALUES (?, ?, NOW())");
+        $stmt = $db->prepare("INSERT INTO favorite (user_id, product_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())");
         $stmt->execute([$userId, $data['productId'] ?? $data['product_id'] ?? 0]);
         success(null, '收藏成功');
     },
@@ -943,7 +991,7 @@ $routes = [
         $data = getInput();
         $id = $data['id'] ?? 0;
         $db = getDB();
-        $db->prepare("DELETE FROM user_favorite WHERE id = ?")->execute([$id]);
+        $db->prepare("DELETE FROM favorite WHERE id = ?")->execute([$id]);
         success(null, '取消收藏');
     },
 
@@ -954,7 +1002,7 @@ $routes = [
         $userId = $parts[0] ?? 0;
         if ($userId <= 0) error('未登录', 401);
         $db = getDB();
-        $stmt = $db->prepare("SELECT * FROM balance_log WHERE user_id = ? ORDER BY id DESC");
+        $stmt = $db->prepare("SELECT * FROM user_balance_log WHERE user_id = ? AND (deleted = 0 OR deleted IS NULL) ORDER BY id DESC");
         $stmt->execute([$userId]);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
@@ -966,8 +1014,14 @@ $routes = [
         $userId = $parts[0] ?? 0;
         $data = getInput();
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO feedback (user_id, content, contact, created_at) VALUES (?, ?, ?, NOW())");
-        $stmt->execute([$userId, $data['content'] ?? '', $data['contact'] ?? '']);
+        $stmt = $db->prepare("INSERT INTO feedback (user_id, type, title, content, contact, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())");
+        $stmt->execute([
+            $userId,
+            $data['type'] ?? 'other',
+            $data['title'] ?? '',
+            $data['content'] ?? '',
+            $data['contact'] ?? '',
+        ]);
         success(null, '提交成功');
     },
 
@@ -1116,11 +1170,41 @@ $routes = [
 
     // 询价
     'POST inquiry/submit' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = (int)($parts[0] ?? 0);
         $data = getInput();
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO inquiry (name, phone, email, product_name, part_no, quantity, remark, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())");
-        $stmt->execute([$data['name'] ?? '', $data['phone'] ?? '', $data['email'] ?? '', $data['productName'] ?? $data['product_name'] ?? '', $data['partNo'] ?? $data['part_no'] ?? '', $data['quantity'] ?? 0, $data['remark'] ?? '']);
-        success(null, '提交成功');
+        $inquiryNo = 'IQ' . date('YmdHis') . rand(1000, 9999);
+        // 前端 Inquiry.vue 提交: { contact, phone, remark, items:[{partNo,brand,quantity,targetPrice}] }
+        $stmt = $db->prepare("INSERT INTO inquiry (inquiry_no, user_id, contact, phone, remark, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW(), NOW())");
+        $stmt->execute([
+            $inquiryNo,
+            $userId,
+            $data['contact'] ?? $data['name'] ?? '',
+            $data['phone'] ?? '',
+            $data['remark'] ?? '',
+        ]);
+        $inquiryId = $db->lastInsertId();
+        $items = $data['items'] ?? [];
+        if (empty($items) && !empty($data['partNo'] ?? $data['part_no'] ?? '')) {
+            $items = [[
+                'partNo' => $data['partNo'] ?? $data['part_no'] ?? '',
+                'quantity' => $data['quantity'] ?? 0,
+                'targetPrice' => $data['targetPrice'] ?? null,
+            ]];
+        }
+        foreach ($items as $it) {
+            $db->prepare("INSERT INTO inquiry_item (inquiry_id, product_id, part_no, quantity, target_price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())")
+                ->execute([
+                    $inquiryId,
+                    $it['productId'] ?? $it['product_id'] ?? 0,
+                    $it['partNo'] ?? $it['part_no'] ?? '',
+                    $it['quantity'] ?? 0,
+                    $it['targetPrice'] ?? $it['target_price'] ?? null,
+                ]);
+        }
+        success(['inquiry_no' => $inquiryNo, 'itemCount' => count($items)], '提交成功');
     },
     'GET inquiry/list' => function() {
         $token = getTokenFromRequest();

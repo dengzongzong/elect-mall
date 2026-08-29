@@ -65,6 +65,9 @@
             <div class="action-btns">
               <el-button type="danger" size="large" @click="handleAddCart">加入购物车</el-button>
               <el-button size="large" @click="$router.push('/inquiry')">我要询价</el-button>
+              <el-button size="large" :type="favorited ? 'danger' : 'default'" plain @click="handleToggleFavorite">
+                {{ favorited ? '已收藏' : '收藏' }}
+              </el-button>
             </div>
           </div>
         </div>
@@ -117,7 +120,7 @@ import MainFooter from '../components/MainFooter.vue'
 import { useCartStore } from '../stores/cart'
 import { getProductDetail } from '../api/product'
 import { getBrands } from '../api/product'
-import { addToCart } from '../api/cart'
+import { getFavoriteList, addFavorite, deleteFavorite } from '../api/user'
 
 const route = useRoute()
 const cartStore = useCartStore()
@@ -126,6 +129,27 @@ const activeTab = ref('desc')
 const product = ref(null)
 const loading = ref(true)
 const brandMap = ref({})
+
+const favorited = ref(false)
+const favoritedId = ref(null)
+const favoriting = ref(false)
+
+// 判断当前商品是否已收藏（未登录时接口 401，保持未收藏态）
+async function checkFavorite() {
+  if (!localStorage.getItem('token') || !product.value) return
+  try {
+    const res = await getFavoriteList()
+    const list = Array.isArray(res) ? res : []
+    const hit = list.find(
+      (f) => String(f.product_id ?? f.productId) === String(product.value.id)
+    )
+    favorited.value = !!hit
+    favoritedId.value = hit ? hit.id : null
+  } catch (e) {
+    favorited.value = false
+    favoritedId.value = null
+  }
+}
 
 async function fetchProduct() {
   try {
@@ -151,6 +175,7 @@ async function fetchProduct() {
       data.brandLogo = brand.logo || ''
     }
     product.value = data
+    await checkFavorite()
   } catch (e) {
     ElMessage.error('获取商品详情失败')
   } finally {
@@ -160,20 +185,39 @@ async function fetchProduct() {
 
 async function handleAddCart() {
   if (!product.value) return
-  try {
-    await addToCart(product.value.id, quantity.value)
-  } catch (e) {
-    // fallback to local cart
-  }
-  cartStore.addItem({
+  // store 内部已调用 cart/add 接口，此处不可再单独调用，否则数量会翻倍
+  await cartStore.addItem({
     id: product.value.id,
     name: product.value.name,
+    part_no: product.value.part_no || product.value.partNo,
     price: product.value.price,
     quantity: quantity.value,
     stock: product.value.stock || 0,
-    image: '',
+    image: product.value.image_url || '',
   })
   ElMessage.success('已加入购物车')
+}
+
+// 收藏 / 取消收藏（真实写入后端 favorite 表）
+async function handleToggleFavorite() {
+  if (!product.value) return
+  favoriting.value = true
+  try {
+    if (favorited.value) {
+      await deleteFavorite(favoritedId.value)
+      favorited.value = false
+      favoritedId.value = null
+      ElMessage.success('已取消收藏')
+    } else {
+      await addFavorite(product.value.id)
+      ElMessage.success('已收藏')
+      await checkFavorite()
+    }
+  } catch (e) {
+    ElMessage.error('操作失败，请稍后重试')
+  } finally {
+    favoriting.value = false
+  }
 }
 
 onMounted(() => {

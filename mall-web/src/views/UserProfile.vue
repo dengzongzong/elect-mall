@@ -17,11 +17,8 @@
         <el-form-item label="手机号">
           <el-input v-model="form.phone" disabled style="width: 300px" />
         </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="form.email" placeholder="请输入邮箱" style="width: 300px" />
-        </el-form-item>
         <el-form-item>
-          <el-button type="danger" @click="handleSave">保存</el-button>
+          <el-button type="danger" :loading="saving" @click="handleSave">保存</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -29,21 +26,54 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
+import { updateUserProfile } from '../api/user'
+import { getUserInfo } from '../api/auth'
 
 const userStore = useUserStore()
+const saving = ref(false)
 
 const form = reactive({
-  nickname: userStore.userInfo.nickname || '',
-  phone: userStore.userInfo.phone || '138****8888',
-  email: 'user@example.com',
+  nickname: '',
+  phone: '',
+  avatar: '',
 })
 
-function handleSave() {
-  ElMessage.success('保存成功')
+async function fetchProfile() {
+  try {
+    const res = await getUserInfo()
+    form.nickname = res?.nickname || ''
+    form.phone = res?.phone || ''
+    form.avatar = res?.avatar || ''
+  } catch (e) {
+    // 未登录时回退到本地缓存
+    form.nickname = userStore.userInfo?.nickname || ''
+    form.phone = userStore.userInfo?.phone || ''
+  }
 }
+
+async function handleSave() {
+  if (!form.nickname) {
+    ElMessage.warning('请输入昵称')
+    return
+  }
+  saving.value = true
+  try {
+    await updateUserProfile({ nickname: form.nickname, avatar: form.avatar })
+    ElMessage.success('保存成功')
+    await fetchProfile()
+  } catch (e) {
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+onMounted(() => {
+  fetchProfile()
+})
 </script>
 
 <style scoped>

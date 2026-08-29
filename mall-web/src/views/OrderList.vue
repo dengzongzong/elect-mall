@@ -11,65 +11,40 @@
       <div class="page-card">
         <h3>我的订单</h3>
         <el-tabs v-model="activeTab" class="order-tabs">
-          <el-tab-pane label="待审核" name="pending">
+          <el-tab-pane
+            v-for="tab in tabs"
+            :key="tab.name"
+            :label="tab.label"
+            :name="tab.name"
+          >
             <div class="empty-state" v-if="orders.length === 0">
               <el-icon><Folder /></el-icon>
-              <p>暂无待审核订单</p>
+              <p>暂无{{ tab.label }}订单</p>
             </div>
-          </el-tab-pane>
-          <el-tab-pane label="待付款" name="unpaid">
-            <div class="order-list">
+            <div class="order-list" v-else>
               <div class="order-card" v-for="order in orders" :key="order.id">
                 <div class="order-header">
-                  <span class="order-no">订单号：{{ order.orderNo }}</span>
-                  <span class="order-status unpaid">待付款</span>
-                </div>
-                <div class="order-body">
-                  <div class="order-item" v-for="item in order.items" :key="item.id">
-                    <div class="item-img"><el-icon><Cpu /></el-icon></div>
-                    <div class="item-info">
-                      <h5>{{ item.name }}</h5>
-                      <p>x{{ item.qty }}</p>
-                    </div>
-                    <div class="item-price">￥{{ item.price }}</div>
-                  </div>
-                </div>
-                <div class="order-footer">
-                  <span class="order-total">共 {{ order.totalQty }} 件商品 合计：<em>￥{{ order.totalAmount }}</em></span>
-                  <div class="order-actions">
-                    <el-button type="danger" @click="$router.push(`/pay/${order.orderNo}`)">立即付款</el-button>
-                    <el-button @click="$router.push(`/order/${order.id}`)">订单详情</el-button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </el-tab-pane>
-          <el-tab-pane label="待发货" name="shipping">
-            <div class="empty-state"><el-icon><Folder /></el-icon><p>暂无待发货订单</p></div>
-          </el-tab-pane>
-          <el-tab-pane label="待收货" name="received">
-            <div class="empty-state"><el-icon><Folder /></el-icon><p>暂无待收货订单</p></div>
-          </el-tab-pane>
-          <el-tab-pane label="全部" name="all">
-            <div class="order-list">
-              <div class="order-card" v-for="order in orders" :key="order.id">
-                <div class="order-header">
-                  <span class="order-no">订单号：{{ order.orderNo }}</span>
+                  <span class="order-no">订单号：{{ order.order_no }}</span>
                   <span class="order-status" :class="order.statusClass">{{ order.statusText }}</span>
                 </div>
                 <div class="order-body">
                   <div class="order-item" v-for="item in order.items" :key="item.id">
                     <div class="item-img"><el-icon><Cpu /></el-icon></div>
                     <div class="item-info">
-                      <h5>{{ item.name }}</h5>
-                      <p>x{{ item.qty }}</p>
+                      <h5>{{ item.product_name || item.name }}</h5>
+                      <p>x{{ item.quantity }}</p>
                     </div>
-                    <div class="item-price">￥{{ item.price }}</div>
+                    <div class="item-price">￥{{ Number(item.price).toFixed(4) }}</div>
                   </div>
                 </div>
                 <div class="order-footer">
-                  <span class="order-total">共 {{ order.totalQty }} 件商品 合计：<em>￥{{ order.totalAmount }}</em></span>
+                  <span class="order-total">共 {{ order.totalQty }} 件商品 合计：<em>￥{{ order.totalAmount.toFixed(2) }}</em></span>
                   <div class="order-actions">
+                    <el-button
+                      type="danger"
+                      v-if="['pending', 'audited'].includes(order.status)"
+                      @click="$router.push(`/pay/${order.order_no}`)"
+                    >立即付款</el-button>
                     <el-button @click="$router.push(`/order/${order.id}`)">订单详情</el-button>
                   </div>
                 </div>
@@ -84,24 +59,47 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
 import { getOrderList } from '../api/order'
 
 const activeTab = ref('all')
-const orders = ref([])
+const allOrders = ref([])
 const loading = ref(false)
 
+// 后端订单状态（英文）→ 展示文案与样式
 const statusMap = {
-  '待审核': { text: '待审核', cls: 'pending' },
-  '待付款': { text: '待付款', cls: 'unpaid' },
-  '待发货': { text: '待发货', cls: 'shipping' },
-  '待收货': { text: '待收货', cls: 'received' },
-  '已完成': { text: '已完成', cls: 'completed' },
-  '已取消': { text: '已取消', cls: 'cancelled' },
-  'paid': { text: '已支付', cls: 'paid' },
+  pending: { text: '待审核', cls: 'pending' },
+  audited: { text: '待付款', cls: 'unpaid' },
+  paid: { text: '已支付', cls: 'paid' },
+  shipped: { text: '待收货', cls: 'received' },
+  completed: { text: '已完成', cls: 'completed' },
+  cancelled: { text: '已取消', cls: 'cancelled' },
 }
+
+// 标签页 → 对应后端状态（null 表示全部）
+const tabStatusMap = {
+  pending: 'pending',
+  unpaid: 'audited',
+  shipping: 'paid',
+  received: 'shipped',
+  all: null,
+}
+
+const tabs = [
+  { label: '待审核', name: 'pending' },
+  { label: '待付款', name: 'unpaid' },
+  { label: '待发货', name: 'shipping' },
+  { label: '待收货', name: 'received' },
+  { label: '全部', name: 'all' },
+]
+
+// 按当前标签页真实筛选，避免各 tab 渲染同一份数据
+const orders = computed(() => {
+  const status = tabStatusMap[activeTab.value]
+  return status ? allOrders.value.filter((o) => o.status === status) : allOrders.value
+})
 
 async function fetchOrders() {
   loading.value = true
@@ -109,15 +107,14 @@ async function fetchOrders() {
     const res = await getOrderList()
     // 接口经响应拦截器后返回 { records, total, ... }，订单数组在 records 中
     const list = res?.records || res?.data?.records || []
-    if (list.length) {
-      orders.value = list.map(order => ({
-        ...order,
-        statusText: statusMap[order.status]?.text || order.status,
-        statusClass: statusMap[order.status]?.cls || 'pending',
-        items: order.items || [],
-        totalQty: (order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0),
-      }))
-    }
+    allOrders.value = list.map(order => ({
+      ...order,
+      statusText: statusMap[order.status]?.text || order.status,
+      statusClass: statusMap[order.status]?.cls || 'pending',
+      items: order.items || [],
+      totalQty: (order.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+      totalAmount: Number(order.total_amount) || 0,
+    }))
   } catch (e) {
     // ignore
   } finally {

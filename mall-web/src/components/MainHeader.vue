@@ -308,6 +308,8 @@ function handleLogout() {
 
 onMounted(() => {
   fetchCategories()
+  // 已登录时以服务端购物车为准，保证角标数量准确
+  cartStore.syncFromServer()
   // 获取推荐品牌（前端硬编码一些知名品牌供展示）
   featuredBrands.value = [
     { id: 1, name: 'muRata', logo: '/logo.jpg' },

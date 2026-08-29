@@ -12,12 +12,15 @@
       </div>
       <div class="balance-records">
         <h5>余额记录</h5>
-        <div class="record-item" v-for="(r, idx) in records" :key="idx">
+        <div class="record-item" v-for="r in records" :key="r.id">
           <div class="record-info">
-            <span class="record-desc">{{ r.desc }}</span>
-            <span class="record-time">{{ r.time }}</span>
+            <span class="record-desc">{{ r.remark || '余额变动' }}</span>
+            <span class="record-time">{{ r.created_at }}</span>
           </div>
-          <span class="record-amount" :class="r.type">￥{{ r.amount }}</span>
+          <span class="record-amount" :class="Number(r.amount) >= 0 ? 'income' : 'expense'">￥{{ Math.abs(Number(r.amount)).toFixed(2) }}</span>
+        </div>
+        <div class="empty-state" v-if="records.length === 0">
+          <p>暂无余额变动记录</p>
         </div>
       </div>
       <div class="pagination-wrap">
@@ -28,16 +31,35 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getBalanceLog } from '../api/user'
+import { getUserInfo } from '../api/auth'
 
-const balance = ref('1280.50')
+const balance = ref('0.00')
+const records = ref([])
 
-const records = ref([
-  { desc: '在线支付 - 订单 ORD20240315001', time: '2024-03-15 14:30', amount: '56.00', type: 'expense' },
-  { desc: '余额充值', time: '2024-03-10 10:00', amount: '500.00', type: 'income' },
-  { desc: '退款 - 订单 ORD20240308001', time: '2024-03-09 16:20', amount: '120.00', type: 'income' },
-  { desc: '在线支付 - 订单 ORD20240305001', time: '2024-03-05 09:15', amount: '35.00', type: 'expense' },
-])
+async function fetchBalance() {
+  try {
+    const res = await getUserInfo()
+    balance.value = Number(res?.balance ?? 0).toFixed(2)
+  } catch (e) {
+    balance.value = '0.00'
+  }
+}
+
+async function fetchRecords() {
+  try {
+    const res = await getBalanceLog()
+    records.value = Array.isArray(res) ? res : []
+  } catch (e) {
+    records.value = []
+  }
+}
+
+onMounted(() => {
+  fetchBalance()
+  fetchRecords()
+})
 </script>
 
 <style scoped>

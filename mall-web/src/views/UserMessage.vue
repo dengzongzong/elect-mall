@@ -5,16 +5,20 @@
       <el-tabs v-model="activeTab">
         <el-tab-pane label="系统通知" name="system">
           <div class="message-list">
-            <div class="message-item" v-for="(m, idx) in systemMessages" :key="idx">
+            <div class="message-item" v-for="m in messages" :key="m.id">
               <div class="msg-icon">
                 <el-icon :size="24"><Bell /></el-icon>
               </div>
               <div class="msg-content">
                 <h5>{{ m.title }}</h5>
                 <p>{{ m.content }}</p>
-                <span class="msg-time">{{ m.time }}</span>
+                <span class="msg-time">{{ m.created_at }}</span>
               </div>
             </div>
+          </div>
+          <div class="empty-state" v-if="messages.length === 0">
+            <el-icon><Folder /></el-icon>
+            <p>暂无系统通知</p>
           </div>
         </el-tab-pane>
         <el-tab-pane label="订单消息" name="order">
@@ -35,15 +39,26 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getMessageList } from '../api/user'
 
 const activeTab = ref('system')
 
-const systemMessages = ref([
-  { title: '欢迎注册电子元器件商城', content: '感谢您注册成为我们的会员，现在开始选购元器件吧！', time: '2024-03-15 14:30' },
-  { title: '账户安全提醒', content: '您的账户在异地登录，如非本人操作请及时修改密码。', time: '2024-03-14 10:00' },
-  { title: '优惠活动通知', content: 'STM32系列MCU限时特惠，下单即享9折优惠！', time: '2024-03-12 09:00' },
-])
+// message 表无类型字段，统一在系统通知中展示
+const messages = ref([])
+
+async function fetchMessages() {
+  try {
+    const res = await getMessageList()
+    messages.value = Array.isArray(res) ? res : []
+  } catch (e) {
+    messages.value = []
+  }
+}
+
+onMounted(() => {
+  fetchMessages()
+})
 </script>
 
 <style scoped>

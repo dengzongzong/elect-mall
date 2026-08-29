@@ -13,7 +13,7 @@
         <div class="detail-main">
           <!-- 订单状态 -->
           <div class="order-status-bar">
-            <el-steps :active="1" align-center>
+            <el-steps :active="stepActive" align-center>
               <el-step title="提交订单" />
               <el-step title="等待审核" />
               <el-step title="已付款" />
@@ -28,19 +28,19 @@
             <div class="info-grid">
               <div class="info-row">
                 <span class="label">订单编号：</span>
-                <span class="value">ORD20240315001</span>
+                <span class="value">{{ order.order_no || '-' }}</span>
               </div>
               <div class="info-row">
                 <span class="label">下单时间：</span>
-                <span class="value">2024-03-15 14:30:25</span>
+                <span class="value">{{ order.created_at || '-' }}</span>
               </div>
               <div class="info-row">
                 <span class="label">订单状态：</span>
-                <span class="value status">待审核</span>
+                <span class="value status">{{ statusText }}</span>
               </div>
               <div class="info-row">
                 <span class="label">支付方式：</span>
-                <span class="value">微信支付</span>
+                <span class="value">{{ payMethodText }}</span>
               </div>
             </div>
           </div>
@@ -49,24 +49,28 @@
           <div class="info-section">
             <h4>收货信息</h4>
             <div class="address-display">
-              <p>张三 138****8888</p>
-              <p>广东省深圳市南山区科技园南路100号</p>
+              <p v-if="order.receiver_name || order.receiver_phone">
+                {{ order.receiver_name }} {{ order.receiver_phone }}
+              </p>
+              <p>{{ order.receiver_address || '未填写收货地址' }}</p>
             </div>
           </div>
 
           <!-- 商品清单 -->
           <div class="info-section">
             <h4>商品清单</h4>
-            <div class="item-list">
-              <div class="item-row" v-for="item in orderItems" :key="item.id">
+            <div class="item-list" v-if="items.length">
+              <div class="item-row" v-for="item in items" :key="item.id">
                 <div class="item-img"><el-icon><Cpu /></el-icon></div>
                 <div class="item-detail">
-                  <h5>{{ item.name }}</h5>
-                  <p>￥{{ item.price }} x {{ item.qty }}</p>
+                  <h5>{{ item.product_name || item.name }}</h5>
+                  <p class="item-model">{{ item.part_no }}</p>
+                  <p>￥{{ Number(item.price).toFixed(4) }} x {{ item.quantity }}</p>
                 </div>
-                <div class="item-subtotal">￥{{ (item.price * item.qty).toFixed(2) }}</div>
+                <div class="item-subtotal">￥{{ itemSubtotal(item).toFixed(2) }}</div>
               </div>
             </div>
+            <div class="empty-state" v-else>该订单暂无商品明细</div>
           </div>
 
           <!-- 上传凭证 -->
@@ -93,7 +97,7 @@
             <h4>订单金额</h4>
             <div class="amount-row">
               <span>商品金额</span>
-              <span>￥56.00</span>
+              <span>￥{{ goodsAmount.toFixed(2) }}</span>
             </div>
             <div class="amount-row">
               <span>运费</span>
@@ -101,12 +105,27 @@
             </div>
             <div class="amount-total">
               <span>实付金额</span>
-              <span class="total-price">￥56.00</span>
+              <span class="total-price">￥{{ payAmount.toFixed(2) }}</span>
             </div>
           </div>
 
           <div class="action-card">
-            <el-button type="danger" @click="$router.push('/pay/ORD20240315001')" v-if="false">立即付款</el-button>
+            <el-button
+              type="danger"
+              v-if="order.status === 'pending'"
+              @click="$router.push(`/pay/${order.order_no}`)"
+            >立即付款</el-button>
+            <el-button
+              type="danger"
+              v-if="order.status === 'shipped'"
+              :loading="acting"
+              @click="handleConfirmReceipt"
+            >确认收货</el-button>
+            <el-button
+              v-if="['pending', 'audited'].includes(order.status)"
+              :loading="acting"
+              @click="handleCancel"
+            >取消订单</el-button>
             <el-button @click="$router.push('/order/list')">返回订单列表</el-button>
           </div>
         </div>
@@ -117,20 +136,114 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
+import { getOrderDetail, cancelOrder, confirmReceipt } from '../api/order'
 
-const orderItems = ref([
-  { id: 1, name: 'STM32F103C8T6', price: 8.50, qty: 2 },
-  { id: 2, name: 'AMS1117-3.3', price: 0.35, qty: 10 },
-  { id: 3, name: 'DS18B20', price: 2.80, qty: 5 },
-])
+const route = useRoute()
+const router = useRouter()
+
+const order = ref({})
+const items = ref([])
+const loading = ref(false)
+const acting = ref(false)
+
+const statusMap = {
+  pending: '待审核',
+  audited: '待付款',
+  paid: '已支付',
+  shipped: '已发货',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+
+const payMethodMap = {
+  wechat: '微信支付',
+  alipay: '支付宝',
+  bank: '银行转账',
+  balance: '余额支付',
+}
+
+const statusText = computed(() => statusMap[order.value.status] || order.value.status || '-')
+const payMethodText = computed(() => payMethodMap[order.value.payment_method] || '未支付')
+
+const stepActive = computed(() => {
+  switch (order.value.status) {
+    case 'completed': return 5
+    case 'shipped': return 4
+    case 'paid': return 3
+    case 'audited': return 2
+    case 'pending': return 1
+    case 'cancelled': return 0
+    default: return 1
+  }
+})
+
+// 明细小计：优先用后端 subtotal，缺失时用 单价 × 数量
+function itemSubtotal(item) {
+  if (item.subtotal != null && item.subtotal !== '') return Number(item.subtotal) || 0
+  return (Number(item.price) || 0) * (Number(item.quantity) || 0)
+}
+
+const goodsAmount = computed(() => items.value.reduce((sum, i) => sum + itemSubtotal(i), 0))
+const payAmount = computed(() => Number(order.value.total_amount) || goodsAmount.value || 0)
+
+async function fetchOrder() {
+  loading.value = true
+  try {
+    const res = await getOrderDetail(route.params.id)
+    order.value = res || {}
+    items.value = Array.isArray(res?.items) ? res.items : []
+  } catch (e) {
+    ElMessage.error('订单不存在或加载失败')
+    order.value = {}
+    items.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleCancel() {
+  try {
+    await ElMessageBox.confirm('确定要取消该订单吗？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  acting.value = true
+  try {
+    await cancelOrder(order.value.id)
+    ElMessage.success('订单已取消')
+    await fetchOrder()
+  } catch (e) {
+    ElMessage.error('取消失败')
+  } finally {
+    acting.value = false
+  }
+}
+
+async function handleConfirmReceipt() {
+  acting.value = true
+  try {
+    await confirmReceipt(order.value.id)
+    ElMessage.success('已确认收货')
+    await fetchOrder()
+  } catch (e) {
+    ElMessage.error('操作失败')
+  } finally {
+    acting.value = false
+  }
+}
 
 function handleUploadVoucher() {
   ElMessage.success('凭证上传成功，等待审核')
 }
+
+onMounted(() => {
+  fetchOrder()
+})
 </script>
 
 <style scoped>
@@ -260,6 +373,19 @@ function handleUploadVoucher() {
 .item-detail p {
   font-size: 13px;
   color: #999;
+}
+
+.item-detail .item-model {
+  font-size: 12px;
+  color: #bbb;
+  margin-bottom: 2px;
+}
+
+.empty-state {
+  padding: 30px 0;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
 }
 
 .item-subtotal {

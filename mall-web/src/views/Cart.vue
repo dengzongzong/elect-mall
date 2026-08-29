@@ -29,7 +29,7 @@
                 <div class="item-img"><el-icon><Cpu /></el-icon></div>
                 <div class="item-info">
                   <h4>{{ item.name }}</h4>
-                  <p class="item-model">型号: {{ item.name }}</p>
+                  <p class="item-model">型号: {{ item.partNo || item.name }}</p>
                 </div>
               </div>
               <div class="col-price">￥{{ item.price.toFixed(2) }}</div>
@@ -44,7 +44,7 @@
           </div>
           <div class="cart-footer">
             <div class="cart-footer-left">
-              <el-button @click="cartStore.clearCart()">清空购物车</el-button>
+              <el-button @click="handleClear">清空购物车</el-button>
             </div>
             <div class="cart-footer-right">
               <div class="cart-summary">
@@ -62,6 +62,7 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
@@ -69,17 +70,33 @@ import { useCartStore } from '../stores/cart'
 
 const cartStore = useCartStore()
 
+onMounted(() => {
+  cartStore.syncFromServer()
+})
+
+// 数量改动同步到服务端
 function updateQty(item) {
-  cartStore.saveToLocal()
+  cartStore.updateQuantity(item.id, item.quantity)
 }
 
-function handleRemove(id) {
-  ElMessageBox.confirm('确定要删除该商品吗？', '提示', {
-    type: 'warning',
-  }).then(() => {
-    cartStore.removeItem(id)
-    ElMessage.success('已删除')
-  }).catch(() => {})
+async function handleRemove(id) {
+  try {
+    await ElMessageBox.confirm('确定要删除该商品吗？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  await cartStore.removeItem(id)
+  ElMessage.success('已删除')
+}
+
+async function handleClear() {
+  try {
+    await ElMessageBox.confirm('确定要清空购物车吗？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  await cartStore.clearCart()
+  ElMessage.success('已清空')
 }
 </script>
 

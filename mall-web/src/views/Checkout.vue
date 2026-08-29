@@ -19,9 +19,9 @@
                 <div class="address-info">
                   <span class="name">{{ addr.name }}</span>
                   <span class="phone">{{ addr.phone }}</span>
-                  <span class="tag" v-if="addr.isDefault">默认</span>
+                  <span class="tag" v-if="addr.isDefault || addr.is_default">默认</span>
                 </div>
-                <p class="address-detail">{{ addr.address }}</p>
+                <p class="address-detail">{{ fullAddress(addr) }}</p>
               </div>
               <div v-if="addressList.length === 0" class="empty-address">
                 <p>请先在用户中心添加收货地址</p>
@@ -103,17 +103,23 @@ const showAddressDialog = ref(false)
 const addressList = ref([])
 const submitting = ref(false)
 
+// 地址表没有 address 字段，需由省市区+详情拼出完整地址
+function fullAddress(addr) {
+  if (!addr) return ''
+  if (addr.address) return addr.address
+  return `${addr.province || ''}${addr.city || ''}${addr.district || ''} ${addr.detail || ''}`.trim()
+}
+
 async function fetchAddresses() {
   try {
     const res = await getAddressList()
-    if (res.data) {
-      addressList.value = res.data
-      if (addressList.value.length > 0) {
-        selectedAddress.value = addressList.value[0].id
-      }
+    // 接口直接返回数组，不是 { data: [] }
+    addressList.value = Array.isArray(res) ? res : []
+    if (addressList.value.length > 0) {
+      selectedAddress.value = addressList.value[0].id
     }
   } catch (e) {
-    // ignore
+    addressList.value = []
   }
 }
 
@@ -132,10 +138,15 @@ async function handleSubmit() {
     const res = await createOrder({
       name: address?.name || '',
       phone: address?.phone || '',
-      address: address?.address || '',
+      address: fullAddress(address),
       remark: remark.value,
     })
-    const orderNo = res.data?.orderNo || res.orderNo || ('ORD' + Date.now())
+    // 后端返回字段为 order_no（不是 orderNo）
+    const orderNo = res?.order_no || res?.orderNo
+    if (!orderNo) {
+      ElMessage.error('下单失败：未获取到订单号')
+      return
+    }
     cartStore.clearCart()
     ElMessage.success('订单提交成功')
     router.push(`/pay/${orderNo}`)
@@ -146,7 +157,9 @@ async function handleSubmit() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 购物车以服务端为准，先同步再结算
+  await cartStore.syncFromServer()
   fetchAddresses()
 })
 </script>
