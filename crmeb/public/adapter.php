@@ -482,12 +482,94 @@ $routes = [
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'DELETE bom/delete' => function() {
-        checkLogin(); $data = getInput();
+        $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = (int)($parts[0] ?? 0);
+        // 用户端：校验归属后删除
+        $stmt = $db->prepare("SELECT id FROM user WHERE id = ?");
+        $stmt->execute([$userId]);
+        if ($stmt->fetch(PDO::FETCH_ASSOC)) {
+            $db->prepare("DELETE FROM bom_record WHERE id = ? AND user_id = ?")->execute([$id, $userId]);
+            $db->prepare("DELETE FROM bom_item WHERE bom_id = ?")->execute([$id]);
+            success(null, '删除成功');
+        }
+        // 管理员兜底
+        checkLogin();
         $db->prepare("DELETE FROM bom_record WHERE id = ?")->execute([$id]);
-        $db->prepare("DELETE FROM bom_item WHERE record_id = ?")->execute([$id]);
+        $db->prepare("DELETE FROM bom_item WHERE bom_id = ?")->execute([$id]);
         success(null, '删除成功');
+    },
+    // 用户端 BOM 提交：解析料号并匹配 product 表
+    'POST bom/submit' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $data = getInput();
+        $db = getDB();
+        // 支持 items 数组 或 逗号分隔的 partNo/quantity
+        $items = $data['items'] ?? [];
+        if (empty($items) && !empty($data['partNo'])) {
+            $pnArr = array_map('trim', explode(',', (string)$data['partNo']));
+            $qtyStr = trim((string)($data['quantity'] ?? ''));
+            $qtyArr = $qtyStr ? array_map('trim', explode(',', $qtyStr)) : [];
+            $items = [];
+            foreach ($pnArr as $i => $pn) {
+                if ($pn === '') continue;
+                $items[] = ['partNo' => $pn, 'quantity' => $qtyArr[$i] ?? 1];
+            }
+        }
+        if (empty($items)) error('请输入至少一个料号');
+        $totalCount = 0; $matchCount = 0; $totalAmount = 0; $parsed = [];
+        foreach ($items as $it) {
+            $pn = trim((string)($it['partNo'] ?? ''));
+            if ($pn === '') continue;
+            $qty = max(1, (int)($it['quantity'] ?? 1));
+            $totalCount++;
+            $stmt = $db->prepare("SELECT id, name, price FROM product WHERE part_no = ? AND (deleted = 0 OR deleted IS NULL)");
+            $stmt->execute([$pn]);
+            $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($prod) {
+                $matchCount++;
+                $subtotal = round((float)$prod['price'] * $qty, 4);
+                $totalAmount += $subtotal;
+                $parsed[] = ['partNo' => $pn, 'quantity' => $qty, 'match_status' => 'matched', 'product_id' => $prod['id'], 'price' => $prod['price'], 'subtotal' => $subtotal, 'name' => $prod['name']];
+            } else {
+                $parsed[] = ['partNo' => $pn, 'quantity' => $qty, 'match_status' => 'unmatched', 'product_id' => 0, 'price' => 0, 'subtotal' => 0, 'name' => ''];
+            }
+        }
+        $db->prepare("INSERT INTO bom_record (user_id, match_count, total_count, total_amount, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'pending', NOW(), NOW())")
+            ->execute([$userId, $matchCount, $totalCount, $totalAmount]);
+        $bomId = $db->lastInsertId();
+        foreach ($parsed as $p) {
+            $db->prepare("INSERT INTO bom_item (bom_id, part_no, quantity, match_status, product_id, price, subtotal, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())")
+                ->execute([$bomId, $p['partNo'], $p['quantity'], $p['match_status'], $p['product_id'], $p['price'], $p['subtotal']]);
+        }
+        success(['id' => $bomId, 'matchCount' => $matchCount, 'totalCount' => $totalCount, 'totalAmount' => $totalAmount, 'items' => $parsed], 'BOM已提交');
+    },
+    'GET bom/user/list' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $db = getDB();
+        $stmt = $db->prepare("SELECT * FROM bom_record WHERE user_id = ? ORDER BY id DESC");
+        $stmt->execute([$userId]);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($records) {
+            $ids = array_column($records, 'id');
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $stmt2 = $db->prepare("SELECT * FROM bom_item WHERE bom_id IN ($ph) ORDER BY id ASC");
+            $stmt2->execute($ids);
+            $map = [];
+            foreach ($stmt2->fetchAll(PDO::FETCH_ASSOC) as $row) { $map[$row['bom_id']][] = $row; }
+            foreach ($records as &$r) { $r['items'] = $map[$r['id']] ?? []; }
+            unset($r);
+        }
+        success($records);
     },
     'GET cooperate/list' => function() {
         checkLogin();
@@ -893,6 +975,44 @@ $routes = [
         success(null, '确认收货成功');
     },
 
+    // 上传付款凭证（multipart：id + voucher 文件，或 JSON：id + transferVoucher 文本）
+    'POST order/upload-voucher' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $db = getDB();
+        $json = json_decode(file_get_contents('php://input'), true) ?: [];
+        // JSON body 不会填充 $_POST，需从 json 里取 id
+        $orderId = $_POST['id'] ?? $json['id'] ?? 0;
+        if (!$orderId) error('参数错误');
+        // 校验订单归属
+        $stmt = $db->prepare("SELECT id FROM `order` WHERE id = ? AND user_id = ?");
+        $stmt->execute([$orderId, $userId]);
+        if (!$stmt->fetch(PDO::FETCH_ASSOC)) error('订单不存在', 404);
+        // 处理凭证图片
+        $url = '';
+        if (isset($_FILES['voucher']) && $_FILES['voucher']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['voucher'];
+            $uploadDir = __DIR__ . '/uploads/vouchers/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'webp'];
+            if (!in_array($ext, $allowed)) error('仅支持 jpg/png/gif/pdf/webp 格式');
+            $filename = 'voucher_' . $orderId . '_' . uniqid() . '.' . $ext;
+            if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+                $url = '/uploads/vouchers/' . $filename;
+            }
+        }
+        // 兼容 JSON 文本形式（转账流水号等）
+        if (!$url) {
+            $url = $json['transferVoucher'] ?? '';
+        }
+        if ($url === '') error('请上传凭证图片或填写凭证信息');
+        $db->prepare("UPDATE `order` SET transfer_voucher = ?, updated_at = NOW() WHERE id = ? AND user_id = ?")->execute([$url, $orderId, $userId]);
+        success(['url' => $url], '凭证上传成功');
+    },
+
     // 支付（前端 Pay.vue 将 orderNo 作为 orderId 传入）
     'POST pay/unified-order' => function() {
         $data = getInput();
@@ -963,6 +1083,62 @@ $routes = [
         $db = getDB();
         $db->prepare("DELETE FROM user_address WHERE id = ?")->execute([$id]);
         success(null, '删除成功');
+    },
+
+    // 常用型号管理
+    'GET user/part-no/list' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $db = getDB();
+        $stmt = $db->prepare("SELECT * FROM user_part_no WHERE user_id = ? AND (deleted = 0 OR deleted IS NULL) ORDER BY id DESC");
+        $stmt->execute([$userId]);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    'POST user/part-no/add' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $data = getInput();
+        $partNo = trim($data['partNo'] ?? $data['part_no'] ?? '');
+        if ($partNo === '') error('型号不能为空');
+        $db = getDB();
+        // 已存在则跳过，避免重复
+        $stmt = $db->prepare("SELECT id FROM user_part_no WHERE user_id = ? AND part_no = ? AND (deleted = 0 OR deleted IS NULL)");
+        $stmt->execute([$userId, $partNo]);
+        if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+            $db->prepare("INSERT INTO user_part_no (user_id, part_no, created_at, updated_at) VALUES (?, ?, NOW(), NOW())")
+                ->execute([$userId, $partNo]);
+        }
+        success(['id' => $db->lastInsertId()], '添加成功');
+    },
+    'DELETE user/part-no/delete' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("DELETE FROM user_part_no WHERE id = ? AND user_id = ?")->execute([$id, $userId]);
+        success(null, '删除成功');
+    },
+
+    // 账户安全：绑定邮箱
+    'PUT user/security/bind-email' => function() {
+        $token = getTokenFromRequest();
+        $parts = explode('_', $token);
+        $userId = $parts[0] ?? 0;
+        if ($userId <= 0) error('未登录', 401);
+        $data = getInput();
+        $email = trim($data['email'] ?? '');
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) error('邮箱格式不正确');
+        $db = getDB();
+        $db->prepare("UPDATE user SET email = ?, updated_at = NOW() WHERE id = ?")->execute([$email, $userId]);
+        success(null, '绑定成功');
     },
 
     // 用户收藏

@@ -178,7 +178,9 @@ CREATE TABLE IF NOT EXISTS `feedback` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `user_id` bigint NOT NULL COMMENT '用户ID',
   `type` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '反馈类型：建议/投诉',
+  `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '反馈标题',
   `content` text COLLATE utf8mb4_unicode_ci COMMENT '反馈内容',
+  `contact` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系方式',
   `reply` text COLLATE utf8mb4_unicode_ci COMMENT '管理员回复',
   `status` tinyint DEFAULT '0' COMMENT '处理状态：0-待处理 1-已处理',
   `created_at` datetime NOT NULL COMMENT '创建时间',
@@ -409,6 +411,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '手机号',
   `openid` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '微信openid',
   `nickname` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '昵称',
+  `email` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱',
   `avatar` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '头像URL',
   `balance` decimal(12,2) DEFAULT '0.00' COMMENT '账户余额',
   `status` tinyint DEFAULT '1' COMMENT '状态：1-正常 0-禁用',
@@ -418,6 +421,18 @@ CREATE TABLE IF NOT EXISTS `user` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- 用户常用型号表
+CREATE TABLE IF NOT EXISTS `user_part_no` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `part_no` varchar(100) NOT NULL COMMENT '物料号',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `updated_at` datetime NOT NULL COMMENT '更新时间',
+  `deleted` tinyint(1) DEFAULT '0' COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户常用型号表';
 
 -- 用户地址表
 CREATE TABLE IF NOT EXISTS `user_address` (

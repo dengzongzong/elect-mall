@@ -76,3 +76,31 @@ export function getMessageList() {
 export function updateUserProfile(data) {
   return request.put('/user/center/update-profile', data)
 }
+
+/**
+ * 获取常用型号列表
+ */
+export function getPartNoList() {
+  return request.get('/user/part-no/list')
+}
+
+/**
+ * 新增常用型号
+ */
+export function addPartNo(partNo) {
+  return request.post('/user/part-no/add', { partNo })
+}
+
+/**
+ * 删除常用型号
+ */
+export function deletePartNo(id) {
+  return request.delete('/user/part-no/delete', { data: { id } })
+}
+
+/**
+ * 绑定邮箱
+ */
+export function bindEmail(email) {
+  return request.put('/user/security/bind-email', { email })
+}

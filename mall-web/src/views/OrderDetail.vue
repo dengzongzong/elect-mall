@@ -77,16 +77,21 @@
           <div class="info-section">
             <h4>付款凭证</h4>
             <div class="voucher-upload">
+              <div class="voucher-current" v-if="order.transfer_voucher">
+                <span class="voucher-label">已上传凭证：</span>
+                <span class="voucher-value">{{ order.transfer_voucher }}</span>
+              </div>
               <el-upload
                 action="#"
                 list-type="picture-card"
-                :auto-upload="false"
-                :limit="3"
+                :auto-upload="true"
+                :http-request="handleVoucherUpload"
+                :limit="1"
+                accept="image/*,.pdf"
               >
                 <el-icon><Plus /></el-icon>
               </el-upload>
-              <p class="upload-tip" v-if="false">支持 JPG/PNG/PDF 格式，文件大小不超过 5MB</p>
-              <el-button type="danger" v-if="true" @click="handleUploadVoucher">上传凭证</el-button>
+              <p class="upload-tip">支持 JPG/PNG/PDF 格式，选择后自动上传</p>
             </div>
           </div>
         </div>
@@ -141,7 +146,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
-import { getOrderDetail, cancelOrder, confirmReceipt } from '../api/order'
+import { getOrderDetail, cancelOrder, confirmReceipt, uploadVoucherFile } from '../api/order'
 
 const route = useRoute()
 const router = useRouter()
@@ -238,7 +243,23 @@ async function handleConfirmReceipt() {
 }
 
 function handleUploadVoucher() {
-  ElMessage.success('凭证上传成功，等待审核')
+  ElMessage.info('请选择凭证图片上传')
+}
+
+// el-upload 自定义上传：直传后端 order/upload-voucher
+async function handleVoucherUpload(options) {
+  try {
+    const res = await uploadVoucherFile(order.value.id, options.file)
+    if (res.success === false || (res.code !== undefined && res.code !== 200)) {
+      throw new Error(res.msg || '上传失败')
+    }
+    ElMessage.success('凭证上传成功')
+    options.onSuccess && options.onSuccess(res)
+    await fetchOrder()
+  } catch (e) {
+    ElMessage.error(e.message || '上传失败')
+    options.onError && options.onError(e)
+  }
 }
 
 onMounted(() => {
@@ -386,6 +407,28 @@ onMounted(() => {
   text-align: center;
   color: #999;
   font-size: 14px;
+}
+
+.voucher-current {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+.voucher-label {
+  color: #999;
+}
+
+.voucher-value {
+  color: var(--theme-color);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.voucher-upload .upload-tip {
+  font-size: 12px;
+  color: #bbb;
+  margin-top: 8px;
 }
 
 .item-subtotal {

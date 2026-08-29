@@ -41,3 +41,20 @@ export function confirmReceipt(id) {
 export function uploadVoucher(id, transferVoucher) {
   return request.post('/order/upload-voucher', { id, transferVoucher })
 }
+
+/**
+ * 上传转账凭证（图片文件，multipart）
+ * 用 fetch 直发，避免 axios 的 JSON Content-Type 干扰 multipart 边界
+ */
+export async function uploadVoucherFile(orderId, file) {
+  const fd = new FormData()
+  fd.append('id', orderId)
+  fd.append('voucher', file)
+  const token = localStorage.getItem('token')
+  const res = await fetch('/api/adapter/order/upload-voucher', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  })
+  return res.json()
+}

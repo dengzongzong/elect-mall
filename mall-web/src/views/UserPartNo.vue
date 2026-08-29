@@ -11,14 +11,14 @@
         <el-button @click="showInput = false">取消</el-button>
       </div>
       <div class="partno-list">
-        <div class="partno-item" v-for="(p, idx) in partNos" :key="idx">
+        <div class="partno-item" v-for="p in partNos" :key="p.id">
           <div class="partno-info">
-            <span class="partno-name">{{ p }}</span>
+            <span class="partno-name">{{ p.part_no }}</span>
           </div>
           <div class="partno-actions">
-            <el-button size="small" @click="handleSearch(p)">搜索</el-button>
-            <el-button size="small" @click="handleInquiry(p)">询价</el-button>
-            <el-button size="small" type="danger" link @click="handleDelete(idx)">删除</el-button>
+            <el-button size="small" @click="handleSearch(p.part_no)">搜索</el-button>
+            <el-button size="small" @click="handleInquiry(p.part_no)">询价</el-button>
+            <el-button size="small" type="danger" link @click="handleDelete(p.id)">删除</el-button>
           </div>
         </div>
       </div>
@@ -31,28 +31,41 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getPartNoList, addPartNo, deletePartNo } from '../api/user'
 
 const router = useRouter()
 const showInput = ref(false)
 const newPartNo = ref('')
+const adding = ref(false)
 
-const partNos = ref([
-  'STM32F103C8T6',
-  'ESP32-WROOM-32',
-  'LM2596S-ADJ',
-  'AMS1117-3.3',
-  'DS18B20',
-])
+const partNos = ref([])
 
-function handleAdd() {
-  if (newPartNo.value.trim()) {
-    partNos.value.unshift(newPartNo.value.trim())
+async function fetchPartNos() {
+  try {
+    const res = await getPartNoList()
+    partNos.value = Array.isArray(res) ? res : []
+  } catch (e) {
+    partNos.value = []
+  }
+}
+
+async function handleAdd() {
+  const val = newPartNo.value.trim()
+  if (!val) return
+  adding.value = true
+  try {
+    await addPartNo(val)
+    ElMessage.success('已添加')
     newPartNo.value = ''
     showInput.value = false
-    ElMessage.success('已添加')
+    await fetchPartNos()
+  } catch (e) {
+    ElMessage.error('添加失败')
+  } finally {
+    adding.value = false
   }
 }
 
@@ -64,10 +77,24 @@ function handleInquiry(partNo) {
   router.push('/inquiry')
 }
 
-function handleDelete(idx) {
-  partNos.value.splice(idx, 1)
-  ElMessage.success('已删除')
+async function handleDelete(id) {
+  try {
+    await ElMessageBox.confirm('确定删除该型号吗？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deletePartNo(id)
+    ElMessage.success('已删除')
+    await fetchPartNos()
+  } catch (e) {
+    ElMessage.error('删除失败')
+  }
 }
+
+onMounted(() => {
+  fetchPartNos()
+})
 </script>
 
 <style scoped>
