@@ -107,8 +107,10 @@ async function fetchOrders() {
   loading.value = true
   try {
     const res = await getOrderList()
-    if (res.data) {
-      orders.value = res.data.map(order => ({
+    // 接口经响应拦截器后返回 { records, total, ... }，订单数组在 records 中
+    const list = res?.records || res?.data?.records || []
+    if (list.length) {
+      orders.value = list.map(order => ({
         ...order,
         statusText: statusMap[order.status]?.text || order.status,
         statusClass: statusMap[order.status]?.cls || 'pending',
