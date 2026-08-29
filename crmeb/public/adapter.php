@@ -440,7 +440,40 @@ $routes = [
     },
     'GET finance/data' => function() {
         checkLogin();
-        success(['totalRevenue' => 0, 'totalOrders' => 0, 'avgOrderValue' => 0, 'dailyData' => []]);
+        $db = getDB();
+        // 收入统计：已支付订单
+        $totalRevenue = (float)$db->query("SELECT COALESCE(SUM(total_amount),0) FROM `order` WHERE status='paid' AND (deleted=0 OR deleted IS NULL)")->fetchColumn();
+        $totalOrders = (int)$db->query("SELECT COUNT(*) FROM `order` WHERE status='paid' AND (deleted=0 OR deleted IS NULL)")->fetchColumn();
+        $monthlyStart = date('Y-m-01 00:00:00');
+        $monthlyIncome = (float)$db->query("SELECT COALESCE(SUM(total_amount),0) FROM `order` WHERE status='paid' AND created_at >= '$monthlyStart'")->fetchColumn();
+        // 待结算：待付款订单（简化口径）
+        $pendingSettlement = (float)$db->query("SELECT COALESCE(SUM(total_amount),0) FROM `order` WHERE status IN ('pending','audited') AND (deleted=0 OR deleted IS NULL)")->fetchColumn();
+        $monthlyProfit = $monthlyIncome;
+        $avgOrderValue = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 2) : 0;
+        // 交易流水：已支付订单
+        $txs = $db->query("SELECT id, order_no, total_amount, created_at FROM `order` WHERE status='paid' ORDER BY id DESC LIMIT 30")->fetchAll(PDO::FETCH_ASSOC);
+        $transactions = [];
+        foreach ($txs as $t) {
+            $transactions[] = [
+                'id' => $t['id'],
+                'type' => '收入',
+                'amount' => $t['total_amount'],
+                'description' => '订单支付 ' . $t['order_no'],
+                'createTime' => $t['created_at'],
+            ];
+        }
+        success([
+            'totalRevenue' => $totalRevenue,
+            'totalOrders' => $totalOrders,
+            'avgOrderValue' => $avgOrderValue,
+            'stats' => [
+                'monthlyIncome' => '¥ ' . number_format($monthlyIncome, 2),
+                'monthlyExpense' => '¥ 0.00',
+                'monthlyProfit' => '¥ ' . number_format($monthlyProfit, 2),
+                'pendingSettlement' => '¥ ' . number_format($pendingSettlement, 2),
+            ],
+            'transactions' => $transactions,
+        ]);
     },
     'GET setting/list' => function() {
         checkLogin();

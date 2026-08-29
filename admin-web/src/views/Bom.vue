@@ -49,7 +49,7 @@ const fetchBomList = async () => {
   loading.value = true
   try {
     const res = await getAdminBomList()
-    tableData.value = res.data || res
+    tableData.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     console.error('获取BOM列表失败', e)
   } finally {

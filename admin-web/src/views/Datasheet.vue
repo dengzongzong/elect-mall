@@ -40,7 +40,7 @@ async function fetchDatasheets() {
   loading.value = true
   try {
     const res = await getAdminDatasheets()
-    tableData.value = res.data || []
+    tableData.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     tableData.value = []
   } finally {

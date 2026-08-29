@@ -74,7 +74,7 @@ async function fetchInquiries() {
   loading.value = true
   try {
     const res = await getAdminInquiries()
-    tableData.value = res.data || []
+    tableData.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     ElMessage.error('获取询价单列表失败')
     tableData.value = []

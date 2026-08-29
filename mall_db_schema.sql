@@ -371,6 +371,19 @@ CREATE TABLE `sys_config` (
   UNIQUE KEY `uk_config_key` (`config_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
+CREATE TABLE `carousel` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `title` varchar(255) NOT NULL COMMENT '标题',
+  `image_url` varchar(500) NOT NULL COMMENT '图片URL',
+  `link` varchar(500) NOT NULL COMMENT '跳转链接',
+  `color` varchar(64) DEFAULT NULL COMMENT '背景渐变',
+  `sort` int NOT NULL DEFAULT '0' COMMENT '排序',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `updated_at` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='首页轮播图';
+
 CREATE TABLE `user` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '手机号',
