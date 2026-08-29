@@ -20,8 +20,13 @@
               <div class="sub-category" v-show="activeCat === cat.id" @mouseleave="activeCat = null">
                 <div class="sub-cat-grid">
                   <div class="sub-cat-group" v-for="group in cat.subs" :key="group.name">
-                    <h5>{{ group.name }}</h5>
-                    <a v-for="item in group.items" :key="item.id || item" href="#" @click.prevent="">{{ displayItemName(item) }}</a>
+                    <router-link :to="`/category/${group.id}`" class="sub-cat-title">{{ group.name }}</router-link>
+                    <router-link
+                      v-for="item in group.items"
+                      :key="resolveItemId(item) || displayItemName(item)"
+                      :to="`/category/${resolveItemId(item)}`"
+                      class="sub-cat-link"
+                    >{{ displayItemName(item) }}</router-link>
                   </div>
                 </div>
               </div>
@@ -201,6 +206,20 @@ function displayItemName(item) {
     }
   }
   return (item && item.name) || item || ''
+}
+
+// 三级子项可能是 {name,id} 对象或 JSON 字符串，统一解析出 id 用于跳转
+function resolveItemId(item) {
+  if (!item) return ''
+  if (typeof item === 'string') {
+    try {
+      const parsed = JSON.parse(item)
+      return parsed.id || ''
+    } catch (e) {
+      return ''
+    }
+  }
+  return (item && item.id) || ''
 }
 
 const newsCols = computed(() => {
@@ -428,7 +447,8 @@ function handleAddToCart(product) {
   gap: 20px;
 }
 
-.sub-cat-group h5 {
+.sub-cat-group h5,
+.sub-cat-title {
   font-size: 14px;
   font-weight: 600;
   color: #333;
@@ -436,6 +456,12 @@ function handleAddToCart(product) {
   padding-bottom: 6px;
   border-bottom: 2px solid var(--theme-color);
   display: inline-block;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.sub-cat-title:hover {
+  color: var(--theme-color);
 }
 
 .sub-cat-group a {
