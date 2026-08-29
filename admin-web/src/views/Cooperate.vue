@@ -5,12 +5,17 @@
         <h2>合作品牌管理</h2>
         <p>管理与商城合作的原厂品牌信息，维护品牌合作关系。</p>
       </div>
-      <el-button type="danger" @click="handleAdd">
-        <el-icon><Plus /></el-icon>新增合作
-      </el-button>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索品牌名称" clearable style="width: 200px" @keyup.enter="fetchCooperates" @clear="fetchCooperates" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger" @click="handleAdd">
+          <el-icon><Plus /></el-icon>新增合作
+        </el-button>
+      </div>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="品牌名称" min-width="180" />
         <el-table-column prop="region" label="所属地区" width="120" />
         <el-table-column prop="contact" label="联系人" width="130" />
@@ -69,11 +74,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAdminCooperates, saveCooperate, deleteCooperate } from '../api/admin'
 
 const tableData = ref([])
 const loading = ref(false)
+const keyword = ref('')
+const multipleSelection = ref([])
 const dialogVisible = ref(false)
 const form = ref({
   id: null,
@@ -88,7 +95,7 @@ const form = ref({
 async function fetchCooperates() {
   loading.value = true
   try {
-    const res = await getAdminCooperates()
+    const res = await getAdminCooperates({ keyword: keyword.value })
     tableData.value = res.data || []
   } catch (e) {
     ElMessage.error('获取合作品牌列表失败')
@@ -114,6 +121,31 @@ async function handleDelete(row) {
     await fetchCooperates()
   } catch (e) {
     ElMessage.error('操作失败')
+  }
+}
+
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的合作品牌')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteCooperate(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchCooperates()
+  } catch (e) {
+    // 用户取消或删除失败
   }
 }
 
@@ -154,5 +186,11 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

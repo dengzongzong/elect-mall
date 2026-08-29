@@ -5,19 +5,25 @@
         <h2>分类管理</h2>
         <p>管理电子元器件的分类体系，支持多级分类结构。</p>
       </div>
-      <el-button type="danger" @click="handleAddRoot">
-        <el-icon><Plus /></el-icon>新增分类
-      </el-button>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索分类名称" clearable style="width: 200px" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger" @click="handleAddRoot">
+          <el-icon><Plus /></el-icon>新增分类
+        </el-button>
+      </div>
     </div>
     <el-card shadow="hover">
       <el-table
         v-loading="loading"
-        :data="tableData"
+        :data="filteredTableData"
         stripe
         row-key="id"
         :tree-props="{ children: 'children' }"
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="分类名称" min-width="200" />
         <el-table-column prop="parent_id" label="层级" width="100">
           <template #default="{ row }">
@@ -162,6 +168,8 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css'
 const loading = ref(false)
 const saving = ref(false)
 const tableData = ref([])
+const keyword = ref('')
+const multipleSelection = ref([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref(null)
@@ -270,6 +278,29 @@ function findParent(id, list) {
   }
   return null
 }
+
+// 前端树形过滤：节点自身或其子孙的 name 包含关键字时保留该节点（保留父级结构）
+function filterTree(list, kw) {
+  if (!kw) return list
+  const keywordLower = String(kw).trim().toLowerCase()
+  const walk = (nodes) => {
+    const result = []
+    for (const node of nodes) {
+      const selfMatch = String(node.name || '').toLowerCase().includes(keywordLower)
+      let children = []
+      if (node.children && node.children.length) {
+        children = walk(node.children)
+      }
+      if (selfMatch || children.length) {
+        result.push({ ...node, children })
+      }
+    }
+    return result
+  }
+  return walk(list)
+}
+
+const filteredTableData = computed(() => filterTree(tableData.value, keyword.value))
 
 function openDialog(title, row) {
   dialogTitle.value = title
@@ -387,6 +418,31 @@ function handleDelete(row) {
   }).catch(() => {})
 }
 
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的分类')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteCategory(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchCategories()
+  } catch (e) {
+    // 用户取消或删除失败
+  }
+}
+
 onMounted(() => {
   fetchCategories()
 })
@@ -413,6 +469,12 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .desc-editor {

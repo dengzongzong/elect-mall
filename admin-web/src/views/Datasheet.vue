@@ -5,12 +5,17 @@
         <h2>数据手册管理</h2>
         <p>管理电子元器件的数据手册（Datasheet），支持上传和下载。</p>
       </div>
-      <el-button type="danger">
-        <el-icon><Upload /></el-icon>上传手册
-      </el-button>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索手册名称" clearable style="width: 200px" @keyup.enter="fetchDatasheets" @clear="fetchDatasheets" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger">
+          <el-icon><Upload /></el-icon>上传手册
+        </el-button>
+      </div>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="name" label="文档名称" min-width="250" />
         <el-table-column prop="product" label="适用产品" width="200" />
@@ -35,11 +40,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
 const tableData = ref([])
+const keyword = ref('')
+const currentPage = ref(1)
+const pageSize = ref(100)
+const multipleSelection = ref([])
 
 async function fetchDatasheets() {
   loading.value = true
   try {
-    const res = await getAdminDatasheets()
+    const res = await getAdminDatasheets({ page: currentPage.value, size: pageSize.value, keyword: keyword.value })
     tableData.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     tableData.value = []
@@ -60,6 +69,31 @@ async function handleDelete(row) {
     await fetchDatasheets()
   } catch (e) {
     // 取消或删除失败，不做处理
+  }
+}
+
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的数据手册')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteDatasheet(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchDatasheets()
+  } catch (e) {
+    // 用户取消或删除失败
   }
 }
 
@@ -89,5 +123,11 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

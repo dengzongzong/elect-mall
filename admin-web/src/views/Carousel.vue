@@ -5,12 +5,17 @@
         <h2>轮播图管理</h2>
         <p>管理首页轮播图，支持添加、编辑、删除和排序。</p>
       </div>
-      <el-button type="danger" @click="handleAdd">
-        <el-icon><Plus /></el-icon>新增轮播图
-      </el-button>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索轮播图标题" clearable style="width: 200px" @keyup.enter="fetchData" @clear="fetchData" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger" @click="handleAdd">
+          <el-icon><Plus /></el-icon>新增轮播图
+        </el-button>
+      </div>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="sort" label="排序" width="80" />
         <el-table-column prop="image_url" label="图片预览" width="160">
           <template #default="{ row }">
@@ -89,6 +94,8 @@ import { getCarousels, saveCarousel, deleteCarousel, uploadFile } from '../api/a
 const loading = ref(false)
 const saving = ref(false)
 const tableData = ref([])
+const keyword = ref('')
+const multipleSelection = ref([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref(null)
@@ -119,7 +126,7 @@ const uploadHeaders = computed(() => ({
 async function fetchData() {
   loading.value = true
   try {
-    const res = await getCarousels()
+    const res = await getCarousels({ keyword: keyword.value })
     tableData.value = res.data || []
   } catch (e) {
     ElMessage.error('获取轮播图列表失败')
@@ -187,6 +194,31 @@ function handleDelete(row) {
   }).catch(() => {})
 }
 
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的轮播图')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteCarousel(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchData()
+  } catch (e) {
+    // 用户取消或删除失败
+  }
+}
+
 onMounted(() => { fetchData() })
 </script>
 
@@ -208,6 +240,11 @@ onMounted(() => { fetchData() })
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 .link-text {
   font-size: 12px;

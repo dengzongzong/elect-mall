@@ -69,8 +69,8 @@ export function getAdminUsers(params) {
 /**
  * 获取分类列表
  */
-export function getAdminCategories() {
-  return request.get('/category/list')
+export function getAdminCategories(params) {
+  return request.get('/category/list', { params })
 }
 
 /**
@@ -93,8 +93,12 @@ export function deleteCategory(id) {
 /**
  * 获取品牌列表
  */
-export function getAdminBrands() {
-  return request.get('/brand/list')
+export function getAdminBrands(params) {
+  return request.get('/brand/list', { params })
+}
+
+export function deleteBrand(id) {
+  return request.delete('/brand/delete', { data: { id } })
 }
 
 /**
@@ -108,10 +112,10 @@ export function saveBrand(data) {
 }
 
 /**
- * 获取新闻列表
+ * 获取新闻列表（管理后台：含下架，支持 keyword）
  */
-export function getAdminNews() {
-  return request.get('/news/list')
+export function getAdminNews(params) {
+  return request.get('/news/admin-list', { params })
 }
 
 /**
@@ -132,6 +136,48 @@ export function deleteNews(id) {
 }
 
 /**
+ * 删除询价单
+ */
+export function deleteInquiry(id) {
+  return request.delete('/inquiry/delete', { data: { id } })
+}
+
+/**
+ * 删除订单
+ */
+export function deleteAdminOrder(id) {
+  return request.delete('/order/delete', { data: { id } })
+}
+
+/**
+ * 删除用户
+ */
+export function deleteAdminUser(id) {
+  return request.delete('/user/delete', { data: { id } })
+}
+
+/**
+ * 删除供应商申请
+ */
+export function deletePartner(id) {
+  return request.delete('/partner/delete', { data: { id } })
+}
+
+/**
+ * 删除消息
+ */
+export function deleteMessage(id) {
+  return request.delete('/message/delete', { data: { id } })
+}
+
+/**
+ * 删除反馈
+ */
+export function deleteFeedback(id) {
+  return request.delete('/feedback/delete', { data: { id } })
+}
+
+/**
  * 获取询价单列表
  */
 export function getAdminInquiries(params) {
@@ -148,15 +194,15 @@ export function replyInquiry(id, reply) {
 /**
  * 获取合作伙伴申请列表
  */
-export function getAdminPartnerApplies() {
-  return request.get('/partner/list')
+export function getAdminPartnerApplies(params) {
+  return request.get('/partner/list', { params })
 }
 
 /**
  * 获取反馈列表
  */
-export function getAdminFeedbacks() {
-  return request.get('/feedback/list')
+export function getAdminFeedbacks(params) {
+  return request.get('/feedback/list', { params })
 }
 
 /**
@@ -197,8 +243,8 @@ export function deleteBom(id) {
 /**
  * 获取合作品牌列表
  */
-export function getAdminCooperates() {
-  return request.get('/cooperate/list')
+export function getAdminCooperates(params) {
+  return request.get('/cooperate/list', { params })
 }
 
 /**
@@ -221,8 +267,8 @@ export function deleteCooperate(id) {
 /**
  * 获取轮播图列表
  */
-export function getCarousels() {
-  return request.get('/adapter/carousel/list')
+export function getCarousels(params) {
+  return request.get('/adapter/carousel/list', { params })
 }
 
 /**

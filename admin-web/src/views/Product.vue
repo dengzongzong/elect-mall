@@ -6,6 +6,7 @@
         <p>管理商城中的所有商品信息，包括新增、编辑、上下架等操作。</p>
       </div>
       <div class="page-actions">
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
         <el-button type="danger" @click="handleImport">
           <el-icon><Upload /></el-icon>导入商品
         </el-button>
@@ -37,7 +38,8 @@
       </el-form>
     </el-card>
     <el-card shadow="hover" class="table-card">
-      <el-table :data="tableData" stripe style="width: 100%">
+      <el-table :data="tableData" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="商品编号" width="120" />
         <el-table-column prop="name" label="商品名称" min-width="200" />
         <el-table-column prop="partNo" label="料号" width="150" />
@@ -127,6 +129,7 @@ const dialogTitle = ref('')
 const categories = ref([])
 
 const tableData = ref([])
+const multipleSelection = ref([])
 const form = ref({
   id: null,
   name: '',
@@ -184,6 +187,31 @@ function handleReset() {
   searchForm.status = ''
   currentPage.value = 1
   fetchProducts()
+}
+
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的商品')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteProduct(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchProducts()
+  } catch (e) {
+    // 用户取消或删除失败
+  }
 }
 
 function handleImport() {

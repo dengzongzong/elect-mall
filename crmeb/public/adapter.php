@@ -386,11 +386,31 @@ $routes = [
     'GET order/page' => function() {
         checkLogin(); $params = getQuery();
         $page = (int)($params['page'] ?? 1); $size = (int)($params['size'] ?? 20); $offset = ($page - 1) * $size;
+        $keyword = trim($params['keyword'] ?? '');
+        $status = $params['status'] ?? '';
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM `order`")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT * FROM `order` ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (order_no LIKE ? OR receiver_name LIKE ? OR receiver_phone LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; $bind[] = $b; }
+        if ($status !== '') { $where .= " AND status = ?"; $bind[] = $status; }
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM `order` $where");
+        $stmt->execute($bind);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT * FROM `order` $where ORDER BY id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+    },
+    'DELETE order/delete' => function() {
+        checkLogin(); $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("UPDATE `order` SET deleted = 1, updated_at = NOW() WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
     'POST order/audit' => function() {
         checkLogin(); $data = getInput();
@@ -407,20 +427,56 @@ $routes = [
     'GET user/list' => function() {
         checkLogin(); $params = getQuery();
         $page = (int)($params['page'] ?? 1); $size = (int)($params['size'] ?? 20); $offset = ($page - 1) * $size;
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM user")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT * FROM user ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (nickname LIKE ? OR phone LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM user $where");
+        $stmt->execute($bind);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT * FROM user $where ORDER BY id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+    },
+    'DELETE user/delete' => function() {
+        checkLogin(); $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("UPDATE user SET deleted = 1, updated_at = NOW() WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
     'GET inquiry/page' => function() {
         checkLogin(); $params = getQuery();
         $page = (int)($params['page'] ?? 1); $size = (int)($params['size'] ?? 20); $offset = ($page - 1) * $size;
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM inquiry")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT * FROM inquiry ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (inquiry_no LIKE ? OR contact LIKE ? OR phone LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM inquiry $where");
+        $stmt->execute($bind);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT * FROM inquiry $where ORDER BY id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+    },
+    'DELETE inquiry/delete' => function() {
+        checkLogin(); $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("UPDATE inquiry SET deleted = 1, updated_at = NOW() WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
     'POST inquiry/reply' => function() {
         checkLogin(); $data = getInput();
@@ -429,14 +485,42 @@ $routes = [
         success(null, '回复成功');
     },
     'GET partner/list' => function() {
-        checkLogin();
+        checkLogin(); $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        success($db->query("SELECT * FROM partner_apply ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC));
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (company_name LIKE ? OR contact_name LIKE ? OR contact_phone LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT * FROM partner_apply $where ORDER BY id DESC");
+        $stmt->execute($bind);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    'DELETE partner/delete' => function() {
+        checkLogin(); $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("DELETE FROM partner_apply WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
     'GET feedback/list' => function() {
-        checkLogin();
+        checkLogin(); $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        success($db->query("SELECT * FROM feedback ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC));
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (title LIKE ? OR content LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT * FROM feedback $where ORDER BY id DESC");
+        $stmt->execute($bind);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    'DELETE feedback/delete' => function() {
+        checkLogin(); $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("UPDATE feedback SET deleted = 1, updated_at = NOW() WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
     'GET finance/data' => function() {
         checkLogin();
@@ -508,10 +592,20 @@ $routes = [
     'GET bom/list' => function() {
         checkLogin(); $params = getQuery();
         $page = (int)($params['page'] ?? 1); $size = (int)($params['size'] ?? 20); $offset = ($page - 1) * $size;
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM bom_record")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT * FROM bom_record ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND id IN (SELECT DISTINCT bom_id FROM bom_item WHERE part_no LIKE ?)"; $bind[] = "%$keyword%"; }
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM bom_record $where");
+        $stmt->execute($bind);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT * FROM bom_record $where ORDER BY id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'DELETE bom/delete' => function() {
@@ -605,9 +699,15 @@ $routes = [
         success($records);
     },
     'GET cooperate/list' => function() {
-        checkLogin();
+        checkLogin(); $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        success($db->query("SELECT * FROM cooperate_brand ORDER BY sort ASC")->fetchAll(PDO::FETCH_ASSOC));
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND name LIKE ?"; $bind[] = "%$keyword%"; }
+        $stmt = $db->prepare("SELECT * FROM cooperate_brand $where ORDER BY sort ASC");
+        $stmt->execute($bind);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
     'POST cooperate/add' => function() {
         checkLogin(); $data = getInput();
@@ -650,11 +750,29 @@ $routes = [
     'GET message/list' => function() {
         checkLogin(); $params = getQuery();
         $page = (int)($params['page'] ?? 1); $size = (int)($params['size'] ?? 20); $offset = ($page - 1) * $size;
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM message")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT * FROM message ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT); $stmt->bindValue(2, $offset, PDO::PARAM_INT); $stmt->execute();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (title LIKE ? OR content LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM message $where");
+        $stmt->execute($bind);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT * FROM message $where ORDER BY id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
+        $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+    },
+    'DELETE message/delete' => function() {
+        checkLogin(); $data = getInput();
+        $id = $data['id'] ?? 0;
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("UPDATE message SET deleted = 1, updated_at = NOW() WHERE id = ?")->execute([$id]);
+        success(null, '删除成功');
     },
     'POST message/send' => function() {
         checkLogin(); $data = getInput();
@@ -785,8 +903,14 @@ $routes = [
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
     'GET brand/list' => function() {
+        $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $stmt = $db->query("SELECT * FROM brand WHERE deleted = 0 AND status = 1 ORDER BY sort ASC");
+        $where = "WHERE deleted = 0 AND status = 1";
+        $bind = [];
+        if ($keyword) { $where .= " AND name LIKE ?"; $bind[] = "%$keyword%"; }
+        $stmt = $db->prepare("SELECT * FROM brand $where ORDER BY sort ASC");
+        $stmt->execute($bind);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
     'GET brand/{brandId}/products' => function($brandId) {
@@ -1277,8 +1401,26 @@ $routes = [
 
     // 内容 (新闻)
     'GET news/list' => function() {
+        $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $stmt = $db->query("SELECT * FROM news WHERE status = 1 ORDER BY id DESC");
+        $where = "WHERE status = 1 AND (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (title LIKE ? OR content LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT * FROM news $where ORDER BY id DESC");
+        $stmt->execute($bind);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    // 管理后台新闻列表（含下架，支持 keyword）
+    'GET news/admin-list' => function() {
+        checkLogin(); $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
+        $db = getDB();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (title LIKE ? OR content LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT * FROM news $where ORDER BY id DESC");
+        $stmt->execute($bind);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
     'GET news/{id}' => function($id) {
@@ -1302,20 +1444,33 @@ $routes = [
     'GET datasheet/list' => function() {
         $params = getQuery();
         $page = (int)($params['page'] ?? 1); $size = (int)($params['size'] ?? 20); $offset = ($page - 1) * $size;
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM datasheet")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT * FROM datasheet ORDER BY id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT);
-        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($keyword) { $where .= " AND (title LIKE ? OR sub_category LIKE ?)"; $b = "%$keyword%"; $bind[] = $b; $bind[] = $b; }
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM datasheet $where");
+        $stmt->execute($bind);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT * FROM datasheet $where ORDER BY id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
         $stmt->execute();
         success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
 
     // 轮播图管理
     'GET carousel/list' => function() {
-        checkLogin();
+        checkLogin(); $params = getQuery();
+        $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $stmt = $db->query("SELECT * FROM carousel ORDER BY sort ASC, id DESC");
+        $where = "WHERE 1=1";
+        $bind = [];
+        if ($keyword) { $where .= " AND title LIKE ?"; $bind[] = "%$keyword%"; }
+        $stmt = $db->prepare("SELECT * FROM carousel $where ORDER BY sort ASC, id DESC");
+        $stmt->execute($bind);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
     'GET carousel/public/list' => function() {

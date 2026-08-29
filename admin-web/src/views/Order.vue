@@ -5,9 +5,12 @@
         <h2>订单管理</h2>
         <p>管理所有客户订单，包括订单审核、发货、退款等操作。</p>
       </div>
-      <el-button type="danger">
-        <el-icon><Download /></el-icon>导出订单
-      </el-button>
+      <div class="header-actions">
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger">
+          <el-icon><Download /></el-icon>导出订单
+        </el-button>
+      </div>
     </div>
     <el-card shadow="hover" class="search-card">
       <el-form :inline="true" :model="searchForm" class="search-form">
@@ -33,7 +36,8 @@
       </el-form>
     </el-card>
     <el-card shadow="hover">
-      <el-table :data="tableData" stripe style="width: 100%">
+      <el-table :data="tableData" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="orderNo" label="订单编号" width="180" />
         <el-table-column prop="customer" label="客户" width="130" />
         <el-table-column prop="totalAmount" label="订单金额" width="120">
@@ -70,8 +74,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getAdminOrders, auditOrder, shipOrder } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminOrders, auditOrder, shipOrder, deleteAdminOrder } from '../api/admin'
 
 const searchForm = reactive({
   orderNo: '',
@@ -94,6 +98,32 @@ const statusMap = {
 }
 
 const tableData = ref([])
+const multipleSelection = ref([])
+
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的记录')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteAdminOrder(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchOrders()
+  } catch (e) {
+    // 用户取消或删除失败
+  }
+}
 
 async function fetchOrders() {
   loading.value = true
@@ -180,6 +210,12 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-card {

@@ -5,9 +5,13 @@
         <h2>消息通知</h2>
         <p>查看系统消息和通知，包括订单通知、系统公告等。</p>
       </div>
-      <el-button type="danger" @click="dialogVisible = true">
-        <el-icon><Plus /></el-icon>发送通知
-      </el-button>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索消息..." clearable style="width: 200px" @keyup.enter="fetchMessages" @clear="fetchMessages" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger" @click="dialogVisible = true">
+          <el-icon><Plus /></el-icon>发送通知
+        </el-button>
+      </div>
     </div>
     <el-row :gutter="20">
       <el-col :span="8">
@@ -44,6 +48,7 @@
           </template>
           <div class="message-list" v-loading="loading">
             <div class="message-item" v-for="item in messages" :key="item.id">
+              <el-checkbox :model-value="multipleSelection.includes(item)" @change="handleSelectionToggle(item, $event)" />
               <div class="message-dot" :class="{ unread: !item.read }" />
               <div class="message-content">
                 <div class="message-title">{{ item.title }}</div>
@@ -85,13 +90,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getAdminMessages, sendMessage } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminMessages, sendMessage, deleteMessage } from '../api/admin'
 
 const loading = ref(false)
 const sending = ref(false)
 const dialogVisible = ref(false)
 const messages = ref([])
+const keyword = ref('')
+const multipleSelection = ref([])
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 const form = ref({
   title: '',
@@ -102,12 +111,44 @@ const form = ref({
 async function fetchMessages() {
   loading.value = true
   try {
-    const res = await getAdminMessages()
-    messages.value = res.data || []
+    const res = await getAdminMessages({ page: currentPage.value, size: pageSize.value, keyword: keyword.value })
+    messages.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     ElMessage.error('获取消息列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+function handleSelectionToggle(item, checked) {
+  if (checked) {
+    if (!multipleSelection.value.includes(item)) {
+      multipleSelection.value.push(item)
+    }
+  } else {
+    multipleSelection.value = multipleSelection.value.filter(i => i !== item)
+  }
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的记录')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteMessage(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    multipleSelection.value = []
+    await fetchMessages()
+  } catch (e) {
+    // 用户取消或删除失败
   }
 }
 
@@ -156,6 +197,12 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .msg-type-card {

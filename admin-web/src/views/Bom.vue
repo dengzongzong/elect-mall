@@ -6,6 +6,8 @@
         <p>管理物料清单（Bill of Materials），支持BOM导入、匹配和报价。</p>
       </div>
       <div class="page-actions">
+        <el-input v-model="keyword" placeholder="搜索BOM名称" clearable style="width: 200px" @keyup.enter="fetchBomList" @clear="fetchBomList" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
         <el-button type="danger">
           <el-icon><Upload /></el-icon>导入BOM
         </el-button>
@@ -15,7 +17,8 @@
       </div>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" stripe style="width: 100%" v-loading="loading">
+      <el-table :data="tableData" stripe style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="BOM编号" width="140" />
         <el-table-column prop="name" label="BOM名称" min-width="200" />
         <el-table-column prop="itemCount" label="物料数量" width="100" />
@@ -41,14 +44,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getAdminBomList, deleteBom } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
 const tableData = ref([])
+const keyword = ref('')
+const currentPage = ref(1)
+const pageSize = ref(100)
+const multipleSelection = ref([])
 
 const fetchBomList = async () => {
   loading.value = true
   try {
-    const res = await getAdminBomList()
+    const res = await getAdminBomList({ page: currentPage.value, size: pageSize.value, keyword: keyword.value })
     tableData.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     console.error('获取BOM列表失败', e)
@@ -63,6 +71,31 @@ const handleDelete = async (row) => {
     tableData.value = tableData.value.filter(item => item.id !== row.id)
   } catch (e) {
     console.error('删除BOM失败', e)
+  }
+}
+
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的BOM')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteBom(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchBomList()
+  } catch (e) {
+    // 用户取消或删除失败
   }
 }
 

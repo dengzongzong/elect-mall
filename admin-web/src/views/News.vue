@@ -5,12 +5,17 @@
         <h2>新闻管理</h2>
         <p>发布和管理商城新闻资讯、行业动态等内容。</p>
       </div>
-      <el-button type="danger" @click="handleAdd">
-        <el-icon><Edit /></el-icon>新增新闻
-      </el-button>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索新闻标题" clearable style="width: 200px" @keyup.enter="fetchNews" @clear="fetchNews" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger" @click="handleAdd">
+          <el-icon><Edit /></el-icon>新增新闻
+        </el-button>
+      </div>
     </div>
     <el-card shadow="hover">
-      <el-table :data="tableData" stripe v-loading="loading" style="width: 100%">
+      <el-table :data="tableData" stripe v-loading="loading" style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="title" label="新闻标题" min-width="280" />
         <el-table-column prop="status" label="状态" width="100">
@@ -58,6 +63,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
 const tableData = ref([])
+const keyword = ref('')
+const multipleSelection = ref([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const form = ref({
@@ -70,7 +77,7 @@ const form = ref({
 async function fetchNews() {
   loading.value = true
   try {
-    const res = await getAdminNews()
+    const res = await getAdminNews({ keyword: keyword.value })
     tableData.value = res.data || []
   } catch (e) {
     ElMessage.error('获取新闻列表失败')
@@ -113,6 +120,31 @@ async function handleDelete(row) {
   }
 }
 
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的新闻')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteNews(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchNews()
+  } catch (e) {
+    // 用户取消或删除失败
+  }
+}
+
 onMounted(() => {
   fetchNews()
 })
@@ -139,5 +171,11 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>

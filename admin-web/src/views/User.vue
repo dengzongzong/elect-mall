@@ -5,9 +5,12 @@
         <h2>用户管理</h2>
         <p>管理商城注册用户信息，包括用户审核、权限管理等。</p>
       </div>
-      <el-button type="danger">
-        <el-icon><Plus /></el-icon>新增用户
-      </el-button>
+      <div class="header-actions">
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+        <el-button type="danger">
+          <el-icon><Plus /></el-icon>新增用户
+        </el-button>
+      </div>
     </div>
 
     <!-- 搜索表单 -->
@@ -30,7 +33,8 @@
     </el-card>
 
     <el-card shadow="hover">
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="用户ID" width="100" />
         <el-table-column prop="username" label="用户名" width="150" />
         <el-table-column prop="email" label="邮箱" min-width="200" />
@@ -72,13 +76,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getAdminUsers } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminUsers, deleteAdminUser } from '../api/admin'
 
 const tableData = ref([])
 const loading = ref(false)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const multipleSelection = ref([])
 
 const searchForm = ref({
   username: '',
@@ -119,6 +125,31 @@ async function fetchUsers() {
   }
 }
 
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的记录')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteAdminUser(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchUsers()
+  } catch (e) {
+    // 用户取消或删除失败
+  }
+}
+
 function handleSearch() {
   currentPage.value = 1
   fetchUsers()
@@ -156,6 +187,12 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-card {

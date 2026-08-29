@@ -5,10 +5,15 @@
         <h2>询价管理</h2>
         <p>处理客户提交的询价单，提供快速报价响应。</p>
       </div>
+      <div class="header-actions">
+        <el-input v-model="keyword" placeholder="搜索询价单..." clearable style="width: 200px" @keyup.enter="fetchInquiries" @clear="fetchInquiries" />
+        <el-button :disabled="!multipleSelection.length" @click="handleBatchDelete">批量删除</el-button>
+      </div>
       <el-tag type="danger" size="large" effect="dark">待回复: {{ pendingCount }}</el-tag>
     </div>
     <el-card shadow="hover">
-      <el-table v-loading="loading" :data="tableData" stripe style="width: 100%">
+      <el-table v-loading="loading" :data="tableData" stripe style="width: 100%" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="询价编号" width="140" />
         <el-table-column prop="customer" label="客户名称" width="150" />
         <el-table-column prop="productName" label="询价商品" min-width="200" />
@@ -50,12 +55,16 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getAdminInquiries, replyInquiry } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAdminInquiries, replyInquiry, deleteInquiry } from '../api/admin'
 
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref([])
+const keyword = ref('')
+const multipleSelection = ref([])
+const currentPage = ref(1)
+const pageSize = ref(20)
 const replyDialogVisible = ref(false)
 const currentRow = ref(null)
 const replyForm = ref({
@@ -73,13 +82,38 @@ const replyDialogTitle = computed(() => {
 async function fetchInquiries() {
   loading.value = true
   try {
-    const res = await getAdminInquiries()
+    const res = await getAdminInquiries({ page: currentPage.value, size: pageSize.value, keyword: keyword.value })
     tableData.value = res.data?.records || (Array.isArray(res.data) ? res.data : [])
   } catch (e) {
     ElMessage.error('获取询价单列表失败')
     tableData.value = []
   } finally {
     loading.value = false
+  }
+}
+
+function handleSelectionChange(val) {
+  multipleSelection.value = val
+}
+
+async function handleBatchDelete() {
+  if (!multipleSelection.value.length) {
+    ElMessage.warning('请先选择要删除的记录')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    for (const row of multipleSelection.value) {
+      await deleteInquiry(row.id)
+    }
+    ElMessage.success('批量删除成功')
+    await fetchInquiries()
+  } catch (e) {
+    // 用户取消或删除失败
   }
 }
 
@@ -133,5 +167,11 @@ onMounted(() => {
 .page-title p {
   font-size: 14px;
   color: #909399;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 </style>
