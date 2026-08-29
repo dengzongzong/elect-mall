@@ -100,6 +100,7 @@ const statusMap = {
   '待收货': { text: '待收货', cls: 'received' },
   '已完成': { text: '已完成', cls: 'completed' },
   '已取消': { text: '已取消', cls: 'cancelled' },
+  'paid': { text: '已支付', cls: 'paid' },
 }
 
 async function fetchOrders() {

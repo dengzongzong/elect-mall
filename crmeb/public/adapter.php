@@ -735,7 +735,7 @@ $routes = [
         $userId = $parts[0] ?? 0;
         if ($userId <= 0) error('未登录', 401);
         $db = getDB();
-        $stmt = $db->prepare("SELECT c.*, p.name, p.price, p.image, p.part_no FROM cart c LEFT JOIN product p ON c.product_id = p.id WHERE c.user_id = ? ORDER BY c.id DESC");
+        $stmt = $db->prepare("SELECT c.*, p.name, p.price, p.image_url, p.part_no FROM cart c LEFT JOIN product p ON c.product_id = p.id WHERE c.user_id = ? ORDER BY c.id DESC");
         $stmt->execute([$userId]);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
@@ -802,7 +802,8 @@ $routes = [
         $data = getInput();
         $db = getDB();
         $orderNo = 'ORD' . date('YmdHis') . rand(1000, 9999);
-        $stmt = $db->prepare("INSERT INTO `order` (order_no, user_id, total_amount, status, address, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        // order 表收货地址列名为 receiver_address（另含 receiver_name/receiver_phone）
+        $stmt = $db->prepare("INSERT INTO `order` (order_no, user_id, total_amount, status, receiver_address, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
         $stmt->execute([$orderNo, $userId, $data['totalAmount'] ?? $data['total_amount'] ?? 0, 'pending', $data['address'] ?? '', $data['remark'] ?? '']);
         $orderId = $db->lastInsertId();
         success(['id' => $orderId, 'order_no' => $orderNo], '下单成功');
@@ -842,6 +843,39 @@ $routes = [
         $db = getDB();
         $db->prepare("UPDATE `order` SET status='completed' WHERE id=?")->execute([$data['id'] ?? 0]);
         success(null, '确认收货成功');
+    },
+
+    // 支付（前端 Pay.vue 将 orderNo 作为 orderId 传入）
+    'POST pay/unified-order' => function() {
+        $data = getInput();
+        $orderNo = $data['orderId'] ?? $data['orderNo'] ?? '';
+        $method = $data['method'] ?? 'wechat';
+        if (empty($orderNo)) error('订单号不能为空');
+        $db = getDB();
+        $stmt = $db->prepare("SELECT * FROM `order` WHERE order_no = ?");
+        $stmt->execute([$orderNo]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order) error('订单不存在', 404);
+        // 标记为已支付，并记录支付方式
+        $db->prepare("UPDATE `order` SET status='paid', payment_method=?, updated_at=NOW() WHERE order_no=?")
+            ->execute([$method, $orderNo]);
+        $payNo = 'PAY' . date('YmdHis') . rand(1000, 9999);
+        success([
+            'payNo' => $payNo,
+            'tradeNo' => $payNo,
+            'orderNo' => $orderNo,
+            'amount' => $order['total_amount'],
+            'method' => $method,
+        ], '支付成功');
+    },
+    'POST pay/notify' => function() {
+        $data = getInput();
+        $orderNo = $data['orderNo'] ?? $data['orderId'] ?? '';
+        $db = getDB();
+        if (!empty($orderNo)) {
+            $db->prepare("UPDATE `order` SET status='paid', updated_at=NOW() WHERE order_no=?")->execute([$orderNo]);
+        }
+        success(null, '回调成功');
     },
 
     // 用户地址
@@ -890,7 +924,7 @@ $routes = [
         $userId = $parts[0] ?? 0;
         if ($userId <= 0) error('未登录', 401);
         $db = getDB();
-        $stmt = $db->prepare("SELECT f.*, p.name, p.price, p.image, p.part_no FROM user_favorite f LEFT JOIN product p ON f.product_id = p.id WHERE f.user_id = ? ORDER BY f.id DESC");
+        $stmt = $db->prepare("SELECT f.*, p.name, p.price, p.image_url, p.part_no FROM user_favorite f LEFT JOIN product p ON f.product_id = p.id WHERE f.user_id = ? ORDER BY f.id DESC");
         $stmt->execute([$userId]);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
