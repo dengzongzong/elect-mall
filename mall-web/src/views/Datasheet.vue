@@ -20,18 +20,26 @@
           </el-input>
         </div>
         <div class="ds-list">
-          <div class="ds-item" v-for="d in datasheets" :key="d.id">
+          <div class="ds-item" v-for="d in filteredDatasheets" :key="d.id">
             <div class="ds-info">
-              <h4>{{ d.model }}</h4>
-              <p>{{ d.manufacturer }} | {{ d.type }}</p>
+              <h4>{{ d.title }}</h4>
+              <p>{{ d.sub_category || '通用数据手册' }}</p>
             </div>
-            <el-button type="primary" plain size="small">
-              <el-icon><Download /></el-icon> 下载PDF
+            <el-button type="primary" plain size="small" @click="handleDownload(d)">
+              <el-icon><Download /></el-icon> {{ d.pdf_url ? '下载PDF' : '暂无PDF' }}
             </el-button>
+          </div>
+          <div class="empty-state" v-if="filteredDatasheets.length === 0">
+            <p>{{ keyword ? '未找到匹配的数据手册' : '暂无数据手册' }}</p>
           </div>
         </div>
         <div class="pagination-wrap">
-          <el-pagination background layout="prev, pager, next" :total="50" />
+          <el-pagination
+            background
+            layout="prev, pager, next"
+            :total="filteredDatasheets.length"
+            :page-size="10"
+          />
         </div>
       </div>
     </div>
@@ -40,26 +48,50 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
+import { getDatasheetList } from '../api/content'
 
 const keyword = ref('')
+const datasheets = ref([])
 
-const datasheets = ref([
-  { id: 1, model: 'STM32F103C8T6', manufacturer: 'ST', type: 'MCU数据手册' },
-  { id: 2, model: 'ESP32-WROOM-32', manufacturer: 'Espressif', type: '模块数据手册' },
-  { id: 3, model: 'LM2596S-ADJ', manufacturer: 'TI', type: '电源管理' },
-  { id: 4, model: 'AMS1117-3.3', manufacturer: 'AMS', type: 'LDO稳压器' },
-  { id: 5, model: 'DS18B20', manufacturer: 'Maxim', type: '温度传感器' },
-  { id: 6, model: 'W25Q64JVSSIQ', manufacturer: 'Winbond', type: '存储器' },
-  { id: 7, model: 'AT24C02C-SSHM-T', manufacturer: 'Microchip', type: 'EEPROM' },
-  { id: 8, model: 'IRF520NPBF', manufacturer: 'Infineon', type: 'MOSFET' },
-])
+const filteredDatasheets = computed(() => {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) return datasheets.value
+  return datasheets.value.filter((d) => {
+    const title = (d.title || '').toLowerCase()
+    const sub = (d.sub_category || '').toLowerCase()
+    return title.includes(kw) || sub.includes(kw)
+  })
+})
+
+async function fetchDatasheets() {
+  try {
+    const res = await getDatasheetList()
+    datasheets.value = res?.records || (Array.isArray(res) ? res : [])
+  } catch (e) {
+    datasheets.value = []
+  }
+}
 
 function handleSearch() {
-  // 搜索逻辑
+  // 由 computed 过滤实时生效，仅触发一次即可
+  fetchDatasheets()
 }
+
+function handleDownload(d) {
+  if (d.pdf_url) {
+    window.open(d.pdf_url, '_blank')
+  } else {
+    ElMessage.info('该数据手册暂未提供 PDF 下载')
+  }
+}
+
+onMounted(() => {
+  fetchDatasheets()
+})
 </script>
 
 <style scoped>
@@ -148,5 +180,12 @@ function handleSearch() {
   display: flex;
   justify-content: center;
   margin-top: 24px;
+}
+
+.empty-state {
+  padding: 40px 0;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
 }
 </style>

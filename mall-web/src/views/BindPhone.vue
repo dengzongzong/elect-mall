@@ -42,6 +42,7 @@ import { ref, reactive, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
+import { sendCode, bindPhone } from '../api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -75,36 +76,43 @@ const rules = {
   ],
 }
 
-function handleGetCode() {
+async function handleGetCode() {
   if (!/^1[3-9]\d{9}$/.test(form.phone)) {
     ElMessage.warning('请输入正确的手机号')
     return
   }
   codeSending.value = true
-  setTimeout(() => {
-    codeSending.value = false
+  try {
+    await sendCode(form.phone)
     countdown.value = 60
     timer = setInterval(() => {
       countdown.value--
       if (countdown.value <= 0) clearInterval(timer)
     }, 1000)
     ElMessage.success('验证码已发送')
-  }, 1000)
+  } catch (e) {
+    ElMessage.error('验证码发送失败')
+  } finally {
+    codeSending.value = false
+  }
 }
 
 function handleBind() {
-  formRef.value.validate((valid) => {
-    if (valid) {
-      loading.value = true
-      setTimeout(() => {
-        loading.value = false
-        userStore.setUserInfo({
-          ...userStore.userInfo,
-          phone: form.phone,
-        })
-        ElMessage.success('绑定成功')
-        router.push('/')
-      }, 1500)
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    loading.value = true
+    try {
+      await bindPhone(form.phone, form.code)
+      userStore.setUserInfo({
+        ...userStore.userInfo,
+        phone: form.phone,
+      })
+      ElMessage.success('绑定成功')
+      router.push('/')
+    } catch (e) {
+      ElMessage.error('绑定失败，请重试')
+    } finally {
+      loading.value = false
     }
   })
 }
