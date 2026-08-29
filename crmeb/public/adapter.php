@@ -533,7 +533,9 @@ $routes = [
                     $subs[] = ['name' => $l2['name'], 'id' => (string)$l2['id'], 'items' => $items];
                 }
                 $tree[] = [
-                    'id' => $item['id'],
+                    // id 为19位雪花ID，超出 JS Number.MAX_SAFE_INTEGER，
+                    // 必须以字符串输出，否则前端 JSON.parse 后精度丢失会导致多个分类id碰撞
+                    'id' => (string)$item['id'],
                     'name' => $item['name'],
                     'icon' => $iconMap[$iconIdx % count($iconMap)],
                     'subs' => $subs,
@@ -550,6 +552,8 @@ $routes = [
         $map = [];
         $tree = [];
         foreach ($all as $item) {
+            // 同 product/categories：id 以字符串输出，避免 JS 大整数精度丢失
+            $item['id'] = (string)$item['id'];
             $item['children'] = [];
             $map[$item['id']] = $item;
         }
