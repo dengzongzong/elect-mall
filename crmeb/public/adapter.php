@@ -396,8 +396,10 @@ $routes = [
         $db = getDB();
         $tierPrices = $data['tierPrices'] ?? $data['tier_prices'] ?? null;
         $tierPricesJson = is_array($tierPrices) ? json_encode($tierPrices, JSON_UNESCAPED_UNICODE) : ($tierPrices ?: null);
-        $stmt = $db->prepare("INSERT INTO product (name, category_id, part_no, price, tier_prices, stock, description, image_url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([$name, $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $tierPricesJson, $data['stock'] ?? 0, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1]);
+        $specs = $data['specs'] ?? null;
+        $specsJson = is_array($specs) ? json_encode($specs, JSON_UNESCAPED_UNICODE) : ($specs ?: null);
+        $stmt = $db->prepare("INSERT INTO product (name, category_id, part_no, price, tier_prices, stock, weight, specs, description, image_url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$name, $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $tierPricesJson, $data['stock'] ?? 0, $data['weight'] ?? null, $specsJson, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1]);
         success(['id' => $db->lastInsertId()], '保存成功');
     },
     'PUT product/update' => function() {
@@ -406,8 +408,10 @@ $routes = [
         $db = getDB();
         $tierPrices = $data['tierPrices'] ?? $data['tier_prices'] ?? null;
         $tierPricesJson = is_array($tierPrices) ? json_encode($tierPrices, JSON_UNESCAPED_UNICODE) : ($tierPrices ?: null);
-        $stmt = $db->prepare("UPDATE product SET name=?, category_id=?, part_no=?, price=?, tier_prices=?, stock=?, description=?, image_url=?, status=?, updated_at=NOW() WHERE id=?");
-        $stmt->execute([$data['name'] ?? '', $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $tierPricesJson, $data['stock'] ?? 0, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1, $id]);
+        $specs = $data['specs'] ?? null;
+        $specsJson = is_array($specs) ? json_encode($specs, JSON_UNESCAPED_UNICODE) : ($specs ?: null);
+        $stmt = $db->prepare("UPDATE product SET name=?, category_id=?, part_no=?, price=?, tier_prices=?, stock=?, weight=?, specs=?, description=?, image_url=?, status=?, updated_at=NOW() WHERE id=?");
+        $stmt->execute([$data['name'] ?? '', $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $tierPricesJson, $data['stock'] ?? 0, $data['weight'] ?? null, $specsJson, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1, $id]);
         success(null, '保存成功');
     },
     'DELETE product/delete' => function() {
@@ -907,6 +911,7 @@ $routes = [
         $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($records as &$r) {
             $r['tier_prices'] = json_decode($r['tier_prices'] ?? 'null', true);
+            $r['specs'] = json_decode($r['specs'] ?? 'null', true);
         }
         unset($r);
         success(['records' => $records, 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
@@ -917,6 +922,7 @@ $routes = [
         $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($records as &$r) {
             $r['tier_prices'] = json_decode($r['tier_prices'] ?? 'null', true);
+            $r['specs'] = json_decode($r['specs'] ?? 'null', true);
         }
         unset($r);
         success($records);
@@ -928,6 +934,7 @@ $routes = [
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$product) error('商品不存在', 404);
         $product['tier_prices'] = json_decode($product['tier_prices'] ?? 'null', true);
+        $product['specs'] = json_decode($product['specs'] ?? 'null', true);
         success($product);
     },
     // 批量取商品（产品对比页用），含品牌名

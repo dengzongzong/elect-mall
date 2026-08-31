@@ -335,6 +335,7 @@ CREATE TABLE `product` (
   `tier_prices` json DEFAULT NULL COMMENT '阶梯价 JSON：[{"min_qty":100,"price":0.0387}]',
   `min_order` int DEFAULT '1' COMMENT '最小起订量',
   `weight` decimal(10,4) DEFAULT NULL COMMENT '重量(kg)',
+  `specs` json DEFAULT NULL COMMENT '规格参数 JSON（封装、功率、偏差、电阻、电压等）',
   `unit` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '单位',
   `datasheet_url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '数据手册URL',
   `image_url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品图片URL',

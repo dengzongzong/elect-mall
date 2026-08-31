@@ -105,6 +105,20 @@
         <el-form-item label="库存">
           <el-input-number v-model="form.stock" :min="0" />
         </el-form-item>
+        <el-form-item label="重量(g)">
+          <el-input-number v-model="form.weight" :min="0" :precision="4" />
+        </el-form-item>
+        <el-form-item label="规格参数">
+          <div class="specs-block">
+            <div v-for="(spec, index) in form.specs" :key="index" class="spec-row">
+              <el-input v-model="spec.key" placeholder="参数名，如封装" style="width: 140px" />
+              <span class="spec-sep">:</span>
+              <el-input v-model="spec.value" placeholder="参数值，如 0603" style="width: 180px" />
+              <el-button type="danger" link size="small" @click="removeSpec(index)">删除</el-button>
+            </div>
+            <el-button type="primary" link size="small" @click="addSpec">+ 添加规格参数</el-button>
+          </div>
+        </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio :value="1">上架</el-radio>
@@ -149,6 +163,8 @@ const form = ref({
   price: 0,
   tierPrices: [],
   stock: 0,
+  weight: null,
+  specs: [],
   status: 1
 })
 
@@ -232,12 +248,13 @@ function handleImport() {
 
 function handleAdd() {
   dialogTitle.value = '新增商品'
-  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, tierPrices: [], stock: 0, status: 1 }
+  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, tierPrices: [], stock: 0, weight: null, specs: [], status: 1 }
   dialogVisible.value = true
 }
 
 function handleEdit(row) {
   dialogTitle.value = '编辑商品'
+  const specs = row.specs
   form.value = {
     id: row.id,
     name: row.name || '',
@@ -246,6 +263,8 @@ function handleEdit(row) {
     price: row.price || 0,
     tierPrices: Array.isArray(row.tier_prices) ? row.tier_prices : [],
     stock: row.stock || 0,
+    weight: row.weight || null,
+    specs: Array.isArray(specs) ? specs : (specs && typeof specs === 'object' ? Object.entries(specs).map(([k, v]) => ({ key: k, value: v })) : []),
     status: row.status ?? 1
   }
   dialogVisible.value = true
@@ -259,9 +278,24 @@ function removeTierPrice(index) {
   form.value.tierPrices.splice(index, 1)
 }
 
+function addSpec() {
+  form.value.specs.push({ key: '', value: '' })
+}
+
+function removeSpec(index) {
+  form.value.specs.splice(index, 1)
+}
+
 async function handleSave() {
   try {
-    await saveProduct(form.value)
+    const payload = { ...form.value }
+    // 规格参数 [{key,value}] 转成 {key:value} 对象存储
+    if (Array.isArray(payload.specs)) {
+      const specsObj = {}
+      payload.specs.forEach(s => { if (s.key) specsObj[s.key] = s.value })
+      payload.specs = specsObj
+    }
+    await saveProduct(payload)
     ElMessage.success('保存成功')
     dialogVisible.value = false
     fetchProducts()
@@ -359,5 +393,21 @@ onMounted(() => {
   color: #606266;
   font-size: 13px;
   white-space: nowrap;
+}
+
+.specs-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spec-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spec-sep {
+  color: #606266;
 }
 </style>
