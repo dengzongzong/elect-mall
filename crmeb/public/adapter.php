@@ -1645,8 +1645,9 @@ $routes = [
             error('链接格式不正确，必须以 http:// 或 https:// 开头');
         }
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO carousel (title, image_url, link, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([$title, $imageUrl, $link, $data['sort'] ?? 0, $data['status'] ?? 1]);
+        $color = trim($data['color'] ?? '');
+        $stmt = $db->prepare("INSERT INTO carousel (title, image_url, link, color, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$title, $imageUrl, $link, $color, $data['sort'] ?? 0, $data['status'] ?? 1]);
         success(['id' => $db->lastInsertId()], '保存成功');
     },
     'PUT carousel/update' => function() {
@@ -1668,8 +1669,9 @@ $routes = [
             error('链接格式不正确，必须以 http:// 或 https:// 开头');
         }
         $db = getDB();
-        $stmt = $db->prepare("UPDATE carousel SET title=?, image_url=?, link=?, sort=?, status=?, updated_at=NOW() WHERE id=?");
-        $stmt->execute([$title, $imageUrl, $link, $data['sort'] ?? 0, $data['status'] ?? 1, $id]);
+        $color = trim($data['color'] ?? '');
+        $stmt = $db->prepare("UPDATE carousel SET title=?, image_url=?, link=?, color=?, sort=?, status=?, updated_at=NOW() WHERE id=?");
+        $stmt->execute([$title, $imageUrl, $link, $color, $data['sort'] ?? 0, $data['status'] ?? 1, $id]);
         success(null, '保存成功');
     },
     'DELETE carousel/delete' => function() {

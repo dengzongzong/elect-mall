@@ -68,6 +68,14 @@
         <el-form-item label="链接">
           <el-input v-model="form.link" placeholder="点击跳转链接（可选）" />
         </el-form-item>
+        <el-form-item label="背景色">
+          <div class="color-row">
+            <el-color-picker v-model="form.color" />
+            <el-input v-model="form.color" placeholder="如 #E60012 或 linear-gradient(135deg,#E60012,#FF6B6B)" style="flex:1" />
+            <span class="color-preview" :style="{ background: form.color || '#f5f5f5' }"></span>
+          </div>
+          <div class="form-tip">留空则使用系统默认渐变；可填纯色(#RRGGBB)或 CSS 渐变字符串</div>
+        </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" :max="999" />
         </el-form-item>
@@ -104,6 +112,7 @@ const form = ref({
   title: '',
   image_url: '',
   link: '',
+  color: '',
   sort: 0,
   status: 1
 })
@@ -137,7 +146,7 @@ async function fetchData() {
 
 function handleAdd() {
   dialogTitle.value = '新增轮播图'
-  form.value = { id: null, title: '', image_url: '', link: '', sort: 0, status: 1 }
+  form.value = { id: null, title: '', image_url: '', link: '', color: '', sort: 0, status: 1 }
   formRef.value?.clearValidate()
   dialogVisible.value = true
 }
@@ -250,6 +259,25 @@ onMounted(() => { fetchData() })
   font-size: 12px;
   color: #1677ff;
   word-break: break-all;
+}
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.color-preview {
+  width: 40px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  flex-shrink: 0;
+}
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 .avatar-uploader {
   border: 1px dashed #d9d9d9;
