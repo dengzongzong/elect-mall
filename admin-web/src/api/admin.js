@@ -268,7 +268,7 @@ export function deleteCooperate(id) {
  * 获取轮播图列表
  */
 export function getCarousels(params) {
-  return request.get('/adapter/carousel/list', { params })
+  return request.get('/carousel/list', { params })
 }
 
 /**
@@ -276,16 +276,16 @@ export function getCarousels(params) {
  */
 export function saveCarousel(data) {
   if (data.id) {
-    return request.put('/adapter/carousel/update', data)
+    return request.put('/carousel/update', data)
   }
-  return request.post('/adapter/carousel/add', data)
+  return request.post('/carousel/add', data)
 }
 
 /**
  * 删除轮播图
  */
 export function deleteCarousel(id) {
-  return request.delete('/adapter/carousel/delete', { data: { id } })
+  return request.delete('/carousel/delete', { data: { id } })
 }
 
 /**
