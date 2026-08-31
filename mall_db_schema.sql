@@ -108,7 +108,7 @@ CREATE TABLE `category` (
   `parent_id` bigint DEFAULT NULL COMMENT '父分类ID',
   `attr_table` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '属性表名',
   `prefix` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '编号前缀',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT '分类详情(富文本)' AFTER `prefix`,
+  `description` text COLLATE utf8mb4_unicode_ci COMMENT '分类详情(富文本)',
   `sort` int DEFAULT '0' COMMENT '排序',
   `status` tinyint DEFAULT '1' COMMENT '状态：1-启用 0-禁用',
   `created_at` datetime NOT NULL COMMENT '创建时间',
