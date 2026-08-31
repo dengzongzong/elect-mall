@@ -394,16 +394,20 @@ $routes = [
         checkLogin(); $data = getInput();
         $name = $data['name'] ?? ''; if (empty($name)) error('商品名称不能为空');
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO product (name, category_id, part_no, price, stock, description, image_url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([$name, $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $data['stock'] ?? 0, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1]);
+        $tierPrices = $data['tierPrices'] ?? $data['tier_prices'] ?? null;
+        $tierPricesJson = is_array($tierPrices) ? json_encode($tierPrices, JSON_UNESCAPED_UNICODE) : ($tierPrices ?: null);
+        $stmt = $db->prepare("INSERT INTO product (name, category_id, part_no, price, tier_prices, stock, description, image_url, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$name, $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $tierPricesJson, $data['stock'] ?? 0, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1]);
         success(['id' => $db->lastInsertId()], '保存成功');
     },
     'PUT product/update' => function() {
         checkLogin(); $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
-        $stmt = $db->prepare("UPDATE product SET name=?, category_id=?, part_no=?, price=?, stock=?, description=?, image_url=?, status=?, updated_at=NOW() WHERE id=?");
-        $stmt->execute([$data['name'] ?? '', $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $data['stock'] ?? 0, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1, $id]);
+        $tierPrices = $data['tierPrices'] ?? $data['tier_prices'] ?? null;
+        $tierPricesJson = is_array($tierPrices) ? json_encode($tierPrices, JSON_UNESCAPED_UNICODE) : ($tierPrices ?: null);
+        $stmt = $db->prepare("UPDATE product SET name=?, category_id=?, part_no=?, price=?, tier_prices=?, stock=?, description=?, image_url=?, status=?, updated_at=NOW() WHERE id=?");
+        $stmt->execute([$data['name'] ?? '', $data['categoryId'] ?? $data['category_id'] ?? null, $data['partNo'] ?? $data['part_no'] ?? '', $data['price'] ?? 0, $tierPricesJson, $data['stock'] ?? 0, $data['description'] ?? '', $data['image'] ?? '', $data['status'] ?? 1, $id]);
         success(null, '保存成功');
     },
     'DELETE product/delete' => function() {
@@ -900,12 +904,22 @@ $routes = [
         $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
         $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
         $stmt->execute();
-        success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($records as &$r) {
+            $r['tier_prices'] = json_decode($r['tier_prices'] ?? 'null', true);
+        }
+        unset($r);
+        success(['records' => $records, 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'GET product/recommend' => function() {
         $db = getDB();
         $stmt = $db->query("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id WHERE p.status = 1 ORDER BY p.id DESC LIMIT 12");
-        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($records as &$r) {
+            $r['tier_prices'] = json_decode($r['tier_prices'] ?? 'null', true);
+        }
+        unset($r);
+        success($records);
     },
     'GET product/{id}' => function($id) {
         $db = getDB();
@@ -913,6 +927,7 @@ $routes = [
         $stmt->execute([$id]);
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$product) error('商品不存在', 404);
+        $product['tier_prices'] = json_decode($product['tier_prices'] ?? 'null', true);
         success($product);
     },
     // 批量取商品（产品对比页用），含品牌名
@@ -1112,16 +1127,28 @@ $routes = [
             $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
             if (empty($cartItems)) throw new Exception('购物车为空');
 
-            // 校验并锁定库存（FOR UPDATE 行锁防止并发超卖），以服务端最新价格为准
+            // 校验并锁定库存（FOR UPDATE 行锁防止并发超卖），以服务端最新价格/阶梯价计算
             foreach ($cartItems as &$ci) {
-                $s = $db->prepare("SELECT id, stock, price, name FROM product WHERE id = ? AND deleted = 0 FOR UPDATE");
+                $s = $db->prepare("SELECT id, stock, price, name, tier_prices FROM product WHERE id = ? AND deleted = 0 FOR UPDATE");
                 $s->execute([$ci['product_id']]);
                 $prod = $s->fetch(PDO::FETCH_ASSOC);
                 if (!$prod) throw new Exception('商品不存在或已下架: ' . ($ci['name'] ?? $ci['product_id']));
                 if ((int)$prod['stock'] < (int)$ci['quantity']) {
                     throw new Exception('库存不足: ' . $prod['name'] . '（剩余 ' . $prod['stock'] . ' 件）');
                 }
-                $ci['price'] = $prod['price']; // 以服务端真实价格计算
+                // 根据购买数量匹配阶梯价，无阶梯价则使用基础价
+                $unitPrice = (float)$prod['price'];
+                $tierPrices = json_decode($prod['tier_prices'] ?? 'null', true);
+                if (is_array($tierPrices) && !empty($tierPrices)) {
+                    usort($tierPrices, fn($a, $b) => ($b['min_qty'] ?? 0) <=> ($a['min_qty'] ?? 0));
+                    foreach ($tierPrices as $t) {
+                        if ((int)$ci['quantity'] >= (int)($t['min_qty'] ?? 0)) {
+                            $unitPrice = (float)($t['price'] ?? $prod['price']);
+                            break;
+                        }
+                    }
+                }
+                $ci['price'] = $unitPrice;
             }
             unset($ci);
 

@@ -364,6 +364,7 @@ CREATE TABLE IF NOT EXISTS `product` (
   `description` text COLLATE utf8mb4_unicode_ci COMMENT '产品描述',
   `stock` int DEFAULT '0' COMMENT '库存数量',
   `price` decimal(12,4) DEFAULT NULL COMMENT '单价',
+  `tier_prices` json DEFAULT NULL COMMENT '阶梯价 JSON：[{"min_qty":100,"price":0.0387}]',
   `min_order` int DEFAULT '1' COMMENT '最小起订量',
   `weight` decimal(10,4) DEFAULT NULL COMMENT '重量(kg)',
   `unit` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '单位',

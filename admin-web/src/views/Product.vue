@@ -58,7 +58,7 @@
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small">编辑</el-button>
+            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link size="small">下架</el-button>
             <el-button type="warning" link size="small" @click="handleDelete(row.id)">删除</el-button>
           </template>
@@ -90,6 +90,17 @@
         </el-form-item>
         <el-form-item label="价格">
           <el-input-number v-model="form.price" :min="0" :precision="2" />
+        </el-form-item>
+        <el-form-item label="阶梯价">
+          <div class="tier-price-block">
+            <div v-for="(tier, index) in form.tierPrices" :key="index" class="tier-price-row">
+              <el-input-number v-model="tier.min_qty" :min="1" placeholder="起订量" />
+              <span class="tier-label">件及以上</span>
+              <el-input-number v-model="tier.price" :min="0" :precision="4" placeholder="单价" />
+              <el-button type="danger" link size="small" @click="removeTierPrice(index)">删除</el-button>
+            </div>
+            <el-button type="primary" link size="small" @click="addTierPrice">+ 添加阶梯价</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="库存">
           <el-input-number v-model="form.stock" :min="0" />
@@ -136,6 +147,7 @@ const form = ref({
   categoryId: null,
   partNo: '',
   price: 0,
+  tierPrices: [],
   stock: 0,
   status: 1
 })
@@ -220,8 +232,31 @@ function handleImport() {
 
 function handleAdd() {
   dialogTitle.value = '新增商品'
-  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, stock: 0, status: 1 }
+  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, tierPrices: [], stock: 0, status: 1 }
   dialogVisible.value = true
+}
+
+function handleEdit(row) {
+  dialogTitle.value = '编辑商品'
+  form.value = {
+    id: row.id,
+    name: row.name || '',
+    categoryId: row.category_id || null,
+    partNo: row.part_no || '',
+    price: row.price || 0,
+    tierPrices: Array.isArray(row.tier_prices) ? row.tier_prices : [],
+    stock: row.stock || 0,
+    status: row.status ?? 1
+  }
+  dialogVisible.value = true
+}
+
+function addTierPrice() {
+  form.value.tierPrices.push({ min_qty: 1, price: 0 })
+}
+
+function removeTierPrice(index) {
+  form.value.tierPrices.splice(index, 1)
 }
 
 async function handleSave() {
@@ -302,5 +337,27 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.tier-price-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tier-price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tier-price-row .el-input-number {
+  width: 140px;
+}
+
+.tier-label {
+  color: #606266;
+  font-size: 13px;
+  white-space: nowrap;
 }
 </style>

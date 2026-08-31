@@ -35,8 +35,26 @@
           <p class="product-desc">{{ product.description || '' }}</p>
           <div class="price-section">
             <div class="price-row">
-              <span class="label">零售价：</span>
+              <span class="label">基础价：</span>
               <span class="price">￥{{ product.price }}</span>
+            </div>
+            <div class="price-row current-price-row" v-if="tierPrices.length">
+              <span class="label">当前单价：</span>
+              <span class="price">￥{{ currentTierPrice }}</span>
+              <span class="total-hint">（{{ quantity }} 件合计 ￥{{ (currentTierPrice * quantity).toFixed(4) }}）</span>
+            </div>
+          </div>
+          <div class="tier-price-section" v-if="tierPrices.length">
+            <div class="section-title">阶梯价格</div>
+            <div class="tier-price-table">
+              <div class="tier-row header">
+                <span>数量</span>
+                <span>单价（含税）</span>
+              </div>
+              <div class="tier-row" v-for="(tier, idx) in tierPrices" :key="idx">
+                <span>{{ formatTierQty(tier.min_qty) }}+</span>
+                <span class="tier-price">￥{{ tier.price }}</span>
+              </div>
             </div>
           </div>
           <div class="info-section">
@@ -112,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import MainHeader from '../components/MainHeader.vue'
@@ -183,6 +201,23 @@ async function fetchProduct() {
   }
 }
 
+const tierPrices = computed(() => {
+  return Array.isArray(product.value?.tier_prices) ? product.value.tier_prices : []
+})
+
+const currentTierPrice = computed(() => {
+  if (!tierPrices.value.length) return Number(product.value?.price) || 0
+  const tiers = [...tierPrices.value].sort((a, b) => (b.min_qty || 0) - (a.min_qty || 0))
+  for (const t of tiers) {
+    if (quantity.value >= (t.min_qty || 0)) return Number(t.price) || Number(product.value?.price) || 0
+  }
+  return Number(product.value?.price) || 0
+})
+
+function formatTierQty(qty) {
+  return Number(qty || 0).toLocaleString()
+}
+
 async function handleAddCart() {
   if (!product.value) return
   // store 内部已调用 cart/add 接口，此处不可再单独调用，否则数量会翻倍
@@ -190,7 +225,7 @@ async function handleAddCart() {
     id: product.value.id,
     name: product.value.name,
     part_no: product.value.part_no || product.value.partNo,
-    price: product.value.price,
+    price: currentTierPrice.value,
     quantity: quantity.value,
     stock: product.value.stock || 0,
     image: product.value.image_url || '',
@@ -434,5 +469,55 @@ onMounted(() => {
 
 .param-table td:last-child {
   color: #333;
+}
+
+.current-price-row .price {
+  font-size: 22px;
+}
+
+.total-hint {
+  font-size: 14px;
+  color: #666;
+  margin-left: 8px;
+}
+
+.tier-price-section {
+  margin: 16px 0 20px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.tier-price-section .section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.tier-price-table {
+  width: 100%;
+  max-width: 420px;
+  border-collapse: collapse;
+}
+
+.tier-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  color: #333;
+}
+
+.tier-row.header {
+  background: #f0f0f0;
+  font-weight: 600;
+  color: #666;
+}
+
+.tier-row .tier-price {
+  color: var(--theme-color);
+  font-weight: 600;
 }
 </style>
