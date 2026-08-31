@@ -1102,39 +1102,63 @@ $routes = [
         $data = getInput();
         $db = getDB();
 
-        // 以服务端购物车为准计算商品明细与金额（前端金额不可信）
-        $stmt = $db->prepare("SELECT c.product_id, c.quantity, p.name, p.part_no, p.price
-                              FROM cart c LEFT JOIN product p ON c.product_id = p.id
-                              WHERE c.user_id = ? AND (c.deleted = 0 OR c.deleted IS NULL)");
-        $stmt->execute([$userId]);
-        $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $calcTotal = 0;
-        foreach ($cartItems as $ci) {
-            $calcTotal += (float)$ci['price'] * (int)$ci['quantity'];
+        $db->beginTransaction();
+        try {
+            // 以服务端购物车为准计算商品明细与金额（前端金额不可信）
+            $stmt = $db->prepare("SELECT c.product_id, c.quantity, p.name, p.part_no, p.price
+                                  FROM cart c LEFT JOIN product p ON c.product_id = p.id
+                                  WHERE c.user_id = ? AND (c.deleted = 0 OR c.deleted IS NULL)");
+            $stmt->execute([$userId]);
+            $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (empty($cartItems)) throw new Exception('购物车为空');
+
+            // 校验并锁定库存（FOR UPDATE 行锁防止并发超卖），以服务端最新价格为准
+            foreach ($cartItems as &$ci) {
+                $s = $db->prepare("SELECT id, stock, price, name FROM product WHERE id = ? AND deleted = 0 FOR UPDATE");
+                $s->execute([$ci['product_id']]);
+                $prod = $s->fetch(PDO::FETCH_ASSOC);
+                if (!$prod) throw new Exception('商品不存在或已下架: ' . ($ci['name'] ?? $ci['product_id']));
+                if ((int)$prod['stock'] < (int)$ci['quantity']) {
+                    throw new Exception('库存不足: ' . $prod['name'] . '（剩余 ' . $prod['stock'] . ' 件）');
+                }
+                $ci['price'] = $prod['price']; // 以服务端真实价格计算
+            }
+            unset($ci);
+
+            $calcTotal = 0;
+            foreach ($cartItems as $ci) {
+                $calcTotal += (float)$ci['price'] * (int)$ci['quantity'];
+            }
+            $total = $calcTotal > 0 ? $calcTotal : ($data['totalAmount'] ?? $data['total_amount'] ?? 0);
+
+            $orderNo = 'ORD' . date('YmdHis') . rand(1000, 9999);
+            // order 表收货地址列名为 receiver_address（另含 receiver_name/receiver_phone）
+            $stmt = $db->prepare("INSERT INTO `order` (order_no, user_id, total_amount, status, receiver_address, receiver_name, receiver_phone, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+            $stmt->execute([
+                $orderNo, $userId, $total, 'pending',
+                $data['address'] ?? '',
+                $data['receiverName'] ?? $data['name'] ?? '',
+                $data['receiverPhone'] ?? $data['phone'] ?? '',
+                $data['remark'] ?? '',
+            ]);
+            $orderId = $db->lastInsertId();
+
+            // 写入订单明细，扣减库存，并清空购物车
+            foreach ($cartItems as $ci) {
+                $subtotal = (float)$ci['price'] * (int)$ci['quantity'];
+                $db->prepare("INSERT INTO order_item (order_id, product_id, part_no, product_name, quantity, price, subtotal, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())")
+                    ->execute([$orderId, $ci['product_id'], $ci['part_no'], $ci['name'], $ci['quantity'], $ci['price'], $subtotal]);
+                $db->prepare("UPDATE product SET stock = stock - ?, updated_at = NOW() WHERE id = ?")
+                    ->execute([$ci['quantity'], $ci['product_id']]);
+            }
+            $db->prepare("DELETE FROM cart WHERE user_id = ?")->execute([$userId]);
+
+            $db->commit();
+            success(['id' => $orderId, 'order_no' => $orderNo, 'total' => $total, 'itemCount' => count($cartItems)], '下单成功');
+        } catch (Exception $e) {
+            $db->rollBack();
+            error($e->getMessage());
         }
-        $total = $calcTotal > 0 ? $calcTotal : ($data['totalAmount'] ?? $data['total_amount'] ?? 0);
-
-        $orderNo = 'ORD' . date('YmdHis') . rand(1000, 9999);
-        // order 表收货地址列名为 receiver_address（另含 receiver_name/receiver_phone）
-        $stmt = $db->prepare("INSERT INTO `order` (order_no, user_id, total_amount, status, receiver_address, receiver_name, receiver_phone, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([
-            $orderNo, $userId, $total, 'pending',
-            $data['address'] ?? '',
-            $data['receiverName'] ?? $data['name'] ?? '',
-            $data['receiverPhone'] ?? $data['phone'] ?? '',
-            $data['remark'] ?? '',
-        ]);
-        $orderId = $db->lastInsertId();
-
-        // 写入订单明细，并清空购物车
-        foreach ($cartItems as $ci) {
-            $subtotal = (float)$ci['price'] * (int)$ci['quantity'];
-            $db->prepare("INSERT INTO order_item (order_id, product_id, part_no, product_name, quantity, price, subtotal, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())")
-                ->execute([$orderId, $ci['product_id'], $ci['part_no'], $ci['name'], $ci['quantity'], $ci['price'], $subtotal]);
-        }
-        $db->prepare("DELETE FROM cart WHERE user_id = ?")->execute([$userId]);
-
-        success(['id' => $orderId, 'order_no' => $orderNo, 'total' => $total, 'itemCount' => count($cartItems)], '下单成功');
     },
     'GET order/list' => function() {
         $token = getTokenFromRequest();
@@ -1169,8 +1193,29 @@ $routes = [
     'POST order/cancel' => function() {
         $data = getInput();
         $db = getDB();
-        $db->prepare("UPDATE `order` SET status='cancelled' WHERE id=?")->execute([$data['id'] ?? 0]);
-        success(null, '取消成功');
+        $db->beginTransaction();
+        try {
+            $orderId = $data['id'] ?? 0;
+            $stmt = $db->prepare("SELECT id, status FROM `order` WHERE id = ?");
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$order) throw new Exception('订单不存在');
+            if ($order['status'] !== 'pending') throw new Exception('仅待付款订单可取消');
+            // 返还库存
+            $stmt = $db->prepare("SELECT product_id, quantity FROM order_item WHERE order_id = ?");
+            $stmt->execute([$orderId]);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($items as $it) {
+                $db->prepare("UPDATE product SET stock = stock + ?, updated_at = NOW() WHERE id = ?")
+                    ->execute([$it['quantity'], $it['product_id']]);
+            }
+            $db->prepare("UPDATE `order` SET status='cancelled' WHERE id=?")->execute([$orderId]);
+            $db->commit();
+            success(null, '取消成功');
+        } catch (Exception $e) {
+            $db->rollBack();
+            error($e->getMessage());
+        }
     },
     'POST order/confirm-receipt' => function() {
         $data = getInput();
