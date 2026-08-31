@@ -1645,7 +1645,7 @@ $routes = [
             error('链接格式不正确，必须以 http:// 或 https:// 开头');
         }
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO carousel (title, image_url, link, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt = $db->prepare("INSERT INTO carousel (title, image_url, link, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
         $stmt->execute([$title, $imageUrl, $link, $data['sort'] ?? 0, $data['status'] ?? 1]);
         success(['id' => $db->lastInsertId()], '保存成功');
     },
