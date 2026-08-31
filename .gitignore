@@ -10,6 +10,9 @@ node_modules/
 dist/
 .vite/
 .buildcheck*/
+# Vite 构建时生成的临时配置快照（不应入库）
+vite.config.js.timestamp-*.mjs
+*.timestamp-*.mjs
 
 # IDE
 .idea/
