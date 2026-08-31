@@ -18,13 +18,13 @@
           <el-icon><Odometer /></el-icon>
           <template #title>工作台</template>
         </el-menu-item>
-        <el-menu-item index="/product">
-          <el-icon><Goods /></el-icon>
-          <template #title>商品管理</template>
-        </el-menu-item>
         <el-menu-item index="/category">
           <el-icon><Collection /></el-icon>
           <template #title>分类管理</template>
+        </el-menu-item>
+        <el-menu-item index="/product">
+          <el-icon><Goods /></el-icon>
+          <template #title>商品管理</template>
         </el-menu-item>
         <el-menu-item index="/brand">
           <el-icon><Trophy /></el-icon>

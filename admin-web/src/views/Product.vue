@@ -60,7 +60,7 @@
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" link size="small">下架</el-button>
-            <el-button type="warning" link size="small" @click="handleDelete(row.id)">删除</el-button>
+            <el-button type="warning" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -226,19 +226,25 @@ async function handleBatchDelete() {
     ElMessage.warning('请先选择要删除的商品')
     return
   }
+  const withStock = multipleSelection.value.filter(r => (r.stock || 0) > 0)
+  const toDelete = multipleSelection.value.filter(r => !(r.stock > 0))
+  if (withStock.length) {
+    ElMessage.warning(`${withStock.length} 件商品有库存，已跳过删除；将对其余 ${toDelete.length} 件执行删除`)
+  }
+  if (!toDelete.length) return
   try {
-    await ElMessageBox.confirm(`确定删除选中的 ${multipleSelection.value.length} 条记录吗？`, '确认删除', {
+    await ElMessageBox.confirm(`确定删除选中的 ${toDelete.length} 条记录吗？`, '确认删除', {
       type: 'warning',
       confirmButtonText: '确定',
       cancelButtonText: '取消'
     })
-    for (const row of multipleSelection.value) {
+    for (const row of toDelete) {
       await deleteProduct(row.id)
     }
-    ElMessage.success('批量删除成功')
+    ElMessage.success('删除成功')
     await fetchProducts()
   } catch (e) {
-    // 用户取消或删除失败
+    // 用户取消或后端拦截（如库存）已提示
   }
 }
 
@@ -304,16 +310,20 @@ async function handleSave() {
   }
 }
 
-function handleDelete(id) {
+function handleDelete(row) {
+  if ((row.stock || 0) > 0) {
+    ElMessage.warning('该商品有库存，不允许删除')
+    return
+  }
   ElMessageBox.confirm('确认删除该商品？', '提示', {
     type: 'warning',
   }).then(async () => {
     try {
-      await deleteProduct(id)
+      await deleteProduct(row.id)
       ElMessage.success('删除成功')
       fetchProducts()
     } catch (e) {
-      ElMessage.error('删除失败')
+      // 后端拦截器已弹出错误提示（如有库存等情况）
     }
   }).catch(() => {})
 }

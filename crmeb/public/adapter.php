@@ -388,13 +388,31 @@ $routes = [
     'POST product/page' => function() {
         checkLogin(); $data = getInput();
         $page = (int)($data['page'] ?? 1); $size = (int)($data['size'] ?? 20); $offset = ($page - 1) * $size;
+        $categoryId = $data['categoryId'] ?? $data['category_id'] ?? null;
+        $keyword = $data['keyword'] ?? '';
+        $status = $data['status'] ?? null;
         $db = getDB();
-        $total = (int)$db->query("SELECT COUNT(*) as total FROM product")->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id ORDER BY p.id DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $size, PDO::PARAM_INT);
-        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $where = "WHERE 1=1";
+        $bind = [];
+        if ($categoryId) { $where .= " AND p.category_id = ?"; $bind[] = $categoryId; }
+        if ($keyword) { $where .= " AND (p.name LIKE ? OR p.part_no LIKE ?)"; $bind[] = "%$keyword%"; $bind[] = "%$keyword%"; }
+        if ($status !== null && $status !== '') { $where .= " AND p.status = ?"; $bind[] = $status; }
+        $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product p $where");
+        $countStmt->execute($bind);
+        $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id $where ORDER BY p.id DESC LIMIT ? OFFSET ?");
+        $paramIdx = 1;
+        foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
+        $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
+        $stmt->bindValue($paramIdx++, $offset, PDO::PARAM_INT);
         $stmt->execute();
-        success(['records' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
+        $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($records as &$r) {
+            $r['tier_prices'] = json_decode($r['tier_prices'] ?? 'null', true);
+            $r['specs'] = json_decode($r['specs'] ?? 'null', true);
+        }
+        unset($r);
+        success(['records' => $records, 'total' => $total, 'page' => $page, 'size' => $size, 'pages' => ceil($total / $size)]);
     },
     'POST product/add' => function() {
         checkLogin(); $data = getInput();
@@ -424,6 +442,11 @@ $routes = [
         checkLogin(); $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
+        $stmt = $db->prepare("SELECT id, stock, name FROM product WHERE id = ?");
+        $stmt->execute([$id]);
+        $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$prod) error('商品不存在');
+        if ((int)($prod['stock'] ?? 0) > 0) error('商品「' . $prod['name'] . '」当前库存为 ' . $prod['stock'] . '，有库存不允许删除');
         $db->prepare("DELETE FROM product WHERE id = ?")->execute([$id]);
         success(null, '删除成功');
     },

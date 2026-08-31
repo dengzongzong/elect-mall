@@ -49,6 +49,7 @@
             <el-button v-if="levelOf(row) === 1" type="success" link size="small" @click="handleAddSub(row)">新增子类</el-button>
             <el-button v-if="levelOf(row) === 2" type="warning" link size="small" @click="handleEditDescription(row)">编辑详情</el-button>
             <el-button v-if="levelOf(row) === 2" type="info" link size="small" @click="handlePreview(row)">预览</el-button>
+            <el-button v-if="levelOf(row) === 2" type="success" link size="small" @click="handleViewProducts(row)">商品列表</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -154,13 +155,85 @@
         <el-button type="primary" @click="handleEditDescription(previewForm._row)">编辑详情</el-button>
       </template>
     </el-dialog>
+
+    <!-- 分类下的商品列表（主从联动：与商品管理共用同一张商品表） -->
+    <el-dialog
+      v-model="productDialogVisible"
+      :title="productDialogTitle"
+      width="920px"
+      :close-on-click-modal="false"
+      top="30px"
+    >
+      <div class="prod-toolbar">
+        <span class="prod-count">共 {{ categoryProducts.length }} 件商品（与「商品管理」共用同一数据，新增/删除实时联动）</span>
+        <el-button type="primary" size="small" @click="handleAddProduct">
+          <el-icon><Plus /></el-icon>新增商品
+        </el-button>
+      </div>
+      <el-table :data="categoryProducts" v-loading="productLoading" stripe style="width: 100%">
+        <el-table-column prop="id" label="编号" width="100" />
+        <el-table-column prop="name" label="商品名称" min-width="180" />
+        <el-table-column prop="part_no" label="料号" width="140" />
+        <el-table-column prop="price" label="价格" width="100">
+          <template #default="{ row }">¥{{ row.price }}</template>
+        </el-table-column>
+        <el-table-column prop="stock" label="库存" width="90" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '上架' : '下架' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-tooltip v-if="row.stock > 0" content="有库存，不允许删除" placement="top">
+              <el-button type="danger" link size="small" disabled>删除</el-button>
+            </el-tooltip>
+            <el-button v-else type="danger" link size="small" @click="handleDeleteProduct(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="productDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 在所选分类下新增商品 -->
+    <el-dialog v-model="productFormVisible" :title="productFormTitle" width="500px" :close-on-click-modal="false">
+      <el-form :model="productForm" label-width="90px">
+        <el-form-item label="所属分类">
+          <el-tag>{{ currentCategoryName }}</el-tag>
+        </el-form-item>
+        <el-form-item label="商品名称" required>
+          <el-input v-model="productForm.name" placeholder="请输入商品名称" />
+        </el-form-item>
+        <el-form-item label="料号">
+          <el-input v-model="productForm.partNo" placeholder="请输入料号" />
+        </el-form-item>
+        <el-form-item label="价格">
+          <el-input-number v-model="productForm.price" :min="0" :precision="2" />
+        </el-form-item>
+        <el-form-item label="库存">
+          <el-input-number v-model="productForm.stock" :min="0" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-radio-group v-model="productForm.status">
+            <el-radio :value="1">上架</el-radio>
+            <el-radio :value="0">下架</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="productFormVisible = false">取消</el-button>
+        <el-button type="primary" :loading="productSaving" @click="handleSaveProduct">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAdminCategories, saveCategory, deleteCategory } from '../api/admin'
+import { getAdminCategories, saveCategory, deleteCategory, getAdminProducts, saveProduct, deleteProduct } from '../api/admin'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
@@ -448,6 +521,87 @@ async function handleBatchDelete() {
   }
 }
 
+// ===== 分类下的商品列表（主从联动）=====
+const productDialogVisible = ref(false)
+const productDialogTitle = ref('')
+const categoryProducts = ref([])
+const productLoading = ref(false)
+const currentCategory = ref(null)
+const currentCategoryName = ref('')
+
+const productFormVisible = ref(false)
+const productFormTitle = ref('')
+const productSaving = ref(false)
+const productForm = ref({ id: null, name: '', partNo: '', price: 0, stock: 0, status: 1 })
+
+function handleViewProducts(row) {
+  currentCategory.value = row
+  currentCategoryName.value = row.name
+  productDialogTitle.value = `分类「${row.name}」下的商品`
+  productDialogVisible.value = true
+  fetchCategoryProducts()
+}
+
+async function fetchCategoryProducts() {
+  if (!currentCategory.value) return
+  productLoading.value = true
+  try {
+    const res = await getAdminProducts({ page: 1, size: 200, categoryId: currentCategory.value.id })
+    const payload = res.data || res
+    categoryProducts.value = payload.records ? payload.records : (Array.isArray(payload) ? payload : [])
+  } catch (e) {
+    ElMessage.error('获取商品列表失败')
+  } finally {
+    productLoading.value = false
+  }
+}
+
+function handleAddProduct() {
+  productFormTitle.value = '新增商品'
+  productForm.value = { id: null, name: '', partNo: '', price: 0, stock: 0, status: 1 }
+  productFormVisible.value = true
+}
+
+async function handleSaveProduct() {
+  if (!productForm.value.name) {
+    ElMessage.warning('请输入商品名称')
+    return
+  }
+  if (!currentCategory.value) return
+  productSaving.value = true
+  try {
+    const payload = { ...productForm.value, categoryId: currentCategory.value.id }
+    await saveProduct(payload)
+    ElMessage.success('保存成功')
+    productFormVisible.value = false
+    await fetchCategoryProducts()
+  } catch (e) {
+    // 后端拦截器已弹出错误提示
+  } finally {
+    productSaving.value = false
+  }
+}
+
+function handleDeleteProduct(row) {
+  if (row.stock > 0) {
+    ElMessage.warning('该商品有库存，不允许删除')
+    return
+  }
+  ElMessageBox.confirm(`确定删除商品「${row.name}」？`, '确认删除', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      await deleteProduct(row.id)
+      ElMessage.success('删除成功')
+      await fetchCategoryProducts()
+    } catch (e) {
+      // 后端拦截器已弹出错误提示（如有库存等情况）
+    }
+  }).catch(() => {})
+}
+
 onMounted(() => {
   fetchCategories()
 })
@@ -576,5 +730,17 @@ onMounted(() => {
 
 .preview-note {
   padding: 40px 0;
+}
+
+.prod-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.prod-count {
+  font-size: 13px;
+  color: #909399;
 }
 </style>

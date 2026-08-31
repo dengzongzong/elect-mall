@@ -30,8 +30,8 @@ request.interceptors.response.use(
     const res = response.data
     // 如果后端返回了 code 且不为 0/200，视为业务错误
     if (res.code !== undefined && res.code !== 0 && res.code !== 200) {
-      ElMessage.error(res.message || '请求失败')
-      return Promise.reject(new Error(res.message || '请求失败'))
+      ElMessage.error(res.msg || res.message || '请求失败')
+      return Promise.reject(new Error(res.msg || res.message || '请求失败'))
     }
     return res
   },
@@ -49,7 +49,7 @@ request.interceptors.response.use(
       } else if (status === 500) {
         ElMessage.error('服务器内部错误')
       } else {
-        ElMessage.error(error.response.data?.message || '请求失败')
+        ElMessage.error(error.response.data?.msg || error.response.data?.message || '请求失败')
       }
     } else {
       ElMessage.error('网络连接失败，请检查网络')
