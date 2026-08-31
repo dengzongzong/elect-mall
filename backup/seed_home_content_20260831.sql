@@ -4,9 +4,9 @@
 
 -- ================= 轮播图 =================
 INSERT INTO carousel (title, image_url, link, color, sort, status, created_at, updated_at) VALUES
-('电子元器件一站式采购平台', '', '', 'linear-gradient(135deg, #E60012 0%, #ff4d4f 100%)', 1, 1, NOW(), NOW()),
-('原装正品 · 现货速发', '', '', 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)', 2, 1, NOW(), NOW()),
-('钽电容 / 连接器 新品专题', '', '', 'linear-gradient(135deg, #389e0d 0%, #73d13d 100%)', 3, 1, NOW(), NOW());
+('电子元器件一站式采购平台', '', '', 'linear-gradient(135deg, #A8071A 0%, #E60012 100%)', 1, 1, NOW(), NOW()),
+('原装正品 · 现货速发', '', '', 'linear-gradient(135deg, #0958D9 0%, #1677FF 100%)', 2, 1, NOW(), NOW()),
+('钽电容 / 连接器 新品专题', '', '', 'linear-gradient(135deg, #531DAB 0%, #722ED1 100%)', 3, 1, NOW(), NOW());
 
 -- ================= 首页区块：右侧广告位 (side_ad) =================
 INSERT INTO home_block (block_key, title, `desc`, tag, tag_bg, link, bg, icon, sort, status, created_at, updated_at, deleted) VALUES
