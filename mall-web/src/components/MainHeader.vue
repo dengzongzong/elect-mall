@@ -131,30 +131,7 @@
                   </div>
                 </div>
               </div>
-              <!-- 三级：产品细分 -->
-              <div v-if="activeL2 && activeL2.items && activeL2.items.length > 0" class="mega-level level3" :style="{ top: getLevel3Top() }">
-                <div class="mega-level-inner">
-                  <div
-                    class="mega-l3-item"
-                    v-for="item in activeL2.items"
-                    :key="item.id || item"
-                    @click="goToCategoryDetail(item)"
-                    @mousedown.prevent
-                  >
-                    {{ displayItemName(item) }}
-                  </div>
-                </div>
-              </div>
-              <!-- 右栏：品牌推荐 -->
-              <div class="mega-right" v-if="!activeL1">
-                <div class="mega-right-title">推荐品牌</div>
-                <div class="brand-grid">
-                  <div class="brand-logo-item" v-for="brand in featuredBrands" :key="brand.id" @click="$router.push(`/brand/${brand.id}`)">
-                    <img :src="brand.logo" :alt="brand.name" class="brand-logo" @error="onBrandImgError" />
-                    <span class="brand-logo-name">{{ brand.name }}</span>
-                  </div>
-                </div>
-              </div>
+              <!-- 仅两级：一级大类 -> 二级品牌，不再展示第三级面板 -->
             </div>
           </transition>
         </div>
@@ -178,14 +155,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useCartStore } from '../stores/cart'
-import { getCategories, getBrands } from '../api/product'
+import { getCategories } from '../api/product'
 
 const router = useRouter()
 const userStore = useUserStore()
 const cartStore = useCartStore()
 
 const categories = ref([])
-const featuredBrands = ref([])
 const showMegaMenu = ref(false)
 const activeL1Id = ref(null)
 const activeL2Id = ref(null)
@@ -219,14 +195,6 @@ const activeL2 = computed(() => {
 function getLevel2Top() {
   if (!activeL1.value) return '0px'
   const idx = categories.value.findIndex(c => c.id === activeL1Id.value)
-  return `${idx * 46}px`
-}
-
-// 计算三级面板的top偏移
-function getLevel3Top() {
-  if (!activeL2.value) return '0px'
-  if (!activeL1.value) return '0px'
-  const idx = activeL1.value.subs.findIndex(s => s.id === activeL2Id.value)
   return `${idx * 46}px`
 }
 
@@ -275,22 +243,12 @@ function resolveItem(item) {
   return item || {}
 }
 
-function displayItemName(item) {
-  const resolved = resolveItem(item)
-  return resolved.name || resolved.id || item || ''
-}
-
 function goToCategoryDetail(item) {
   showMegaMenu.value = false
   activeL1Id.value = null
   activeL2Id.value = null
   const resolved = resolveItem(item)
   router.push(`/category/detail/${resolved.id}`)
-}
-
-function onBrandImgError(e) {
-  e.target.style.display = 'none'
-  e.target.nextElementSibling.style.display = 'block'
 }
 
 const searchKeyword = ref('')
@@ -310,20 +268,7 @@ onMounted(() => {
   fetchCategories()
   // 已登录时以服务端购物车为准，保证角标数量准确
   cartStore.syncFromServer()
-  // 推荐品牌从后端拉取（优先合作品牌，最多 6 个）
-  fetchFeaturedBrands()
 })
-
-async function fetchFeaturedBrands() {
-  try {
-    const res = await getBrands()
-    const list = Array.isArray(res) ? res : []
-    const coop = list.filter((b) => Number(b.is_cooperate) === 1)
-    featuredBrands.value = (coop.length ? coop : list).slice(0, 6)
-  } catch (e) {
-    featuredBrands.value = []
-  }
-}
 </script>
 
 <style scoped>
@@ -643,11 +588,6 @@ async function fetchFeaturedBrands() {
   z-index: 210;
 }
 
-.mega-level.level3 {
-  left: calc(220px + 220px);
-  z-index: 220;
-}
-
 .mega-level-inner {
   padding: 4px 0;
 }
@@ -681,84 +621,6 @@ async function fetchFeaturedBrands() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.mega-l3-item {
-  display: block;
-  padding: 10px 16px 10px 20px;
-  cursor: pointer;
-  font-size: 12px;
-  color: #666;
-  transition: all 0.15s;
-  height: 46px;
-  line-height: 26px;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.mega-l3-item:hover {
-  background: #fafafa;
-  color: var(--theme-color);
-}
-
-.mega-right {
-  width: 280px;
-  flex-shrink: 0;
-  padding: 20px;
-  overflow-y: auto;
-  border-left: 1px solid #eee;
-}
-
-.mega-right-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--theme-color);
-}
-
-.brand-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.brand-logo-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  padding: 10px 8px;
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.brand-logo-item:hover {
-  border-color: var(--theme-color);
-  box-shadow: 0 2px 10px rgba(230, 0, 18, 0.12);
-}
-
-.brand-logo {
-  width: 72px;
-  height: 34px;
-  object-fit: contain;
-  transition: transform 0.3s;
-}
-
-.brand-logo-item:hover .brand-logo {
-  transform: scale(1.05);
-}
-
-.brand-logo-name {
-  font-size: 11px;
-  color: #888;
-  text-align: center;
-  line-height: 1.3;
-  display: none;
 }
 
 .nav-links {

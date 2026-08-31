@@ -1682,6 +1682,63 @@ $routes = [
         success(null, '删除成功');
     },
 
+    // 首页区块配置后台管理（侧边广告 side_ad / 卖点文案 feature）
+    'GET home-block/list' => function() {
+        checkLogin();
+        $params = getQuery();
+        $blockKey = trim($params['block_key'] ?? '');
+        $db = getDB();
+        $where = "WHERE (deleted = 0 OR deleted IS NULL)";
+        $bind = [];
+        if ($blockKey) { $where .= " AND block_key = ?"; $bind[] = $blockKey; }
+        $stmt = $db->prepare("SELECT * FROM home_block $where ORDER BY block_key ASC, sort ASC, id DESC");
+        $stmt->execute($bind);
+        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+    },
+    'POST home-block/add' => function() {
+        checkLogin();
+        $data = getInput();
+        $blockKey = trim($data['block_key'] ?? '');
+        if (!in_array($blockKey, ['side_ad', 'feature'])) error('区块类型不正确');
+        $title = trim($data['title'] ?? '');
+        if (empty($title)) error('标题不能为空');
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO home_block (block_key, title, `desc`, tag, tag_bg, link, bg, icon, sort, status, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 0)");
+        $stmt->execute([
+            $blockKey, $title, trim($data['desc'] ?? ''), trim($data['tag'] ?? ''),
+            trim($data['tag_bg'] ?? ''), trim($data['link'] ?? ''), trim($data['bg'] ?? ''),
+            trim($data['icon'] ?? ''), (int)($data['sort'] ?? 0), (int)($data['status'] ?? 1)
+        ]);
+        success(['id' => $db->lastInsertId()], '保存成功');
+    },
+    'PUT home-block/update' => function() {
+        checkLogin();
+        $data = getInput();
+        $id = (int)($data['id'] ?? 0);
+        if (!$id) error('参数错误');
+        $blockKey = trim($data['block_key'] ?? '');
+        if (!in_array($blockKey, ['side_ad', 'feature'])) error('区块类型不正确');
+        $title = trim($data['title'] ?? '');
+        if (empty($title)) error('标题不能为空');
+        $db = getDB();
+        $stmt = $db->prepare("UPDATE home_block SET block_key=?, title=?, `desc`=?, tag=?, tag_bg=?, link=?, bg=?, icon=?, sort=?, status=?, updated_at=NOW() WHERE id=?");
+        $stmt->execute([
+            $blockKey, $title, trim($data['desc'] ?? ''), trim($data['tag'] ?? ''),
+            trim($data['tag_bg'] ?? ''), trim($data['link'] ?? ''), trim($data['bg'] ?? ''),
+            trim($data['icon'] ?? ''), (int)($data['sort'] ?? 0), (int)($data['status'] ?? 1), $id
+        ]);
+        success(null, '保存成功');
+    },
+    'DELETE home-block/delete' => function() {
+        checkLogin();
+        $data = getInput();
+        $id = (int)($data['id'] ?? 0);
+        if (!$id) error('参数错误');
+        $db = getDB();
+        $db->prepare("UPDATE home_block SET deleted=1, updated_at=NOW() WHERE id=?")->execute([$id]);
+        success(null, '删除成功');
+    },
+
     // 合作品牌
     'GET cooperate-brand/list' => function() {
         $db = getDB();

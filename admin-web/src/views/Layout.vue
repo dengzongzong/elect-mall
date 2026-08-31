@@ -84,6 +84,10 @@
           <el-icon><Picture /></el-icon>
           <template #title>轮播图管理</template>
         </el-menu-item>
+        <el-menu-item index="/homeblock">
+          <el-icon><Grid /></el-icon>
+          <template #title>首页配置</template>
+        </el-menu-item>
         <el-menu-item index="/setting">
           <el-icon><Setting /></el-icon>
           <template #title>系统设置</template>

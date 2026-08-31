@@ -75,6 +75,12 @@ const routes = [
         meta: { title: '轮播图管理' }
       },
       {
+        path: 'homeblock',
+        name: 'HomeBlock',
+        component: () => import('../views/HomeBlock.vue'),
+        meta: { title: '首页配置' }
+      },
+      {
         path: 'news',
         name: 'News',
         component: () => import('../views/News.vue'),

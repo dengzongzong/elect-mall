@@ -289,6 +289,30 @@ export function deleteCarousel(id) {
 }
 
 /**
+ * 获取首页区块配置（侧边广告 side_ad / 卖点文案 feature）
+ */
+export function getHomeBlocks(params) {
+  return request.get('/home-block/list', { params })
+}
+
+/**
+ * 保存首页区块配置
+ */
+export function saveHomeBlock(data) {
+  if (data.id) {
+    return request.put('/home-block/update', data)
+  }
+  return request.post('/home-block/add', data)
+}
+
+/**
+ * 删除首页区块配置
+ */
+export function deleteHomeBlock(id) {
+  return request.delete('/home-block/delete', { data: { id } })
+}
+
+/**
  * 上传文件
  */
 export function uploadFile(file) {
