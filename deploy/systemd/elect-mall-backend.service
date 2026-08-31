@@ -1,0 +1,48 @@
+# =============================================================
+#  elect-mall PHP 后端 systemd 服务
+#
+#  安装：
+#    sudo cp elect-mall-backend.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now elect-mall-backend
+#
+#  常用命令：
+#    sudo systemctl status  elect-mall-backend
+#    sudo systemctl restart elect-mall-backend
+#    sudo journalctl -u elect-mall-backend -f
+#
+#  注意：
+#    PHP 内置服务器(php -S)为单进程，并发能力有限。
+#    正式生产建议改用 php-fpm（见 nginx/elect-mall.conf 末尾说明），
+#    届时不再需要本服务。PHP_CLI_SERVER_WORKERS 可开启多 worker 缓解。
+# =============================================================
+
+[Unit]
+Description=elect-mall PHP API backend
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/elect-mall/crmeb/public
+
+# 数据库配置（adapter.php 通过 getenv 读取，请按实际修改）
+Environment=DB_HOST=127.0.0.1
+Environment=DB_PORT=3306
+Environment=DB_NAME=mall_db
+Environment=DB_USER=mall_user
+Environment=DB_PASS=change_me_please
+
+# PHP 内置服务器 worker 数（PHP 7.4+ 支持，不设则为 1）
+Environment=PHP_CLI_SERVER_WORKERS=4
+
+ExecStart=/usr/bin/php -S 127.0.0.1:8000 adapter.php
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

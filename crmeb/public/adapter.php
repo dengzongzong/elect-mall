@@ -22,11 +22,17 @@ $path = trim($path, '/');
 $method = $_SERVER['REQUEST_METHOD'];
 
 // 数据库连接
+// 生产部署时通过环境变量（或 nginx fastcgi_param）覆盖，本地保持 root/123456 默认即可。
 function getDB() {
     static $db = null;
     if ($db === null) {
         try {
-            $db = new PDO('mysql:host=127.0.0.1;dbname=mall_db;charset=utf8mb4', 'root', '123456');
+            $host = getenv('DB_HOST') ?: '127.0.0.1';
+            $port = getenv('DB_PORT') ?: '3306';
+            $name = getenv('DB_NAME') ?: 'mall_db';
+            $user = getenv('DB_USER') ?: 'root';
+            $pass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '123456';
+            $db = new PDO("mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4", $user, $pass);
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (Exception $e) {
             jsonResponse(500, '数据库连接失败');
