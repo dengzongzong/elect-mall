@@ -746,14 +746,11 @@ async function fetchFeaturedBrands() {
   width: 72px;
   height: 34px;
   object-fit: contain;
-  filter: grayscale(1);
-  opacity: 0.65;
-  transition: filter 0.3s, opacity 0.3s;
+  transition: transform 0.3s;
 }
 
 .brand-logo-item:hover .brand-logo {
-  filter: grayscale(0);
-  opacity: 1;
+  transform: scale(1.05);
 }
 
 .brand-logo-name {
