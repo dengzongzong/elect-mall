@@ -246,14 +246,44 @@ $routes = [
         checkLogin(); $data = getInput();
         $name = $data['name'] ?? ''; if (empty($name)) error('分类名称不能为空');
         $db = getDB();
+        // 只允许两级分类：父级必须存在且本身是一级
+        $parentId = $data['parentId'] ?? $data['parent_id'] ?? 0;
+        if ($parentId != 0) {
+            $pstmt = $db->prepare("SELECT id, parent_id FROM category WHERE id = ?");
+            $pstmt->execute([$parentId]);
+            $parent = $pstmt->fetch(PDO::FETCH_ASSOC);
+            if (!$parent) error('父级分类不存在');
+            if ($parent['parent_id'] != 0) error('最多只能创建两级分类（二级不能再建子分类）');
+        }
         $stmt = $db->prepare("INSERT INTO category (name, description, parent_id, prefix, sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
-        $stmt->execute([$name, $data['description'] ?? '', $data['parentId'] ?? $data['parent_id'] ?? 0, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1]);
+        $stmt->execute([$name, $data['description'] ?? '', $parentId, $data['prefix'] ?? '', $data['sort'] ?? 0, $data['status'] ?? 1]);
         success(['id' => $db->lastInsertId()], '保存成功');
     },
     'PUT category/update' => function() {
         checkLogin(); $data = getInput();
         $id = $data['id'] ?? 0; if (!$id) error('参数错误');
         $db = getDB();
+        // 若修改了父级，校验仍为两级结构（禁止三级与环）
+        $newParent = null;
+        if (array_key_exists('parentId', $data)) $newParent = $data['parentId'];
+        elseif (array_key_exists('parent_id', $data)) $newParent = $data['parent_id'];
+        if ($newParent !== null && $newParent != 0) {
+            if ((string)$newParent === (string)$id) error('不能将分类移动到自身下');
+            $pstmt = $db->prepare("SELECT id, parent_id FROM category WHERE id = ?");
+            $pstmt->execute([$newParent]);
+            $parentRow = $pstmt->fetch(PDO::FETCH_ASSOC);
+            if (!$parentRow) error('父级分类不存在');
+            if ($parentRow['parent_id'] != 0) error('最多只能创建两级分类（二级不能再建子分类）');
+            $chk = $db->prepare("SELECT parent_id FROM category WHERE id = ?");
+            $cur = $newParent;
+            while ($cur != 0) {
+                $chk->execute([$cur]);
+                $prow = $chk->fetch(PDO::FETCH_ASSOC);
+                if (!$prow) break;
+                if ((string)$prow['parent_id'] === (string)$id) error('不能将分类移动到其子分类下');
+                $cur = $prow['parent_id'];
+            }
+        }
         // 只更新请求中显式传入的字段。
         // 之前是全字段覆盖，若调用方漏传 parentId（如后台「编辑详情」只提交 id/name/description），
         // parent_id 会被写成 0，导致子分类被挂到最顶层。

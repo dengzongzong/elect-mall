@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="page-title">
         <h2>分类管理</h2>
-        <p>管理电子元器件的分类体系，支持多级分类结构。</p>
+        <p>管理电子元器件的分类体系，仅支持两级分类：一级为大类（不支持富文本），二级为子类（支持富文本详情）。</p>
       </div>
       <div class="header-actions">
         <el-input v-model="keyword" placeholder="搜索分类名称" clearable style="width: 200px" />
@@ -27,9 +27,8 @@
         <el-table-column prop="name" label="分类名称" min-width="200" />
         <el-table-column prop="parent_id" label="层级" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.parent_id === 0 || !row.parent_id" type="danger" size="small">1级-大类</el-tag>
-            <el-tag v-else-if="row.children" type="warning" size="small">2级-品牌</el-tag>
-            <el-tag v-else type="info" size="small">3级-细分</el-tag>
+            <el-tag v-if="levelOf(row) === 1" type="danger" size="small">1级-大类</el-tag>
+            <el-tag v-else type="warning" size="small">2级-子类</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="sort" label="排序" width="80" />
@@ -47,9 +46,9 @@
         <el-table-column label="操作" width="420" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="success" link size="small" @click="handleAddSub(row)">新增子类</el-button>
-            <el-button type="warning" link size="small" @click="handleEditDescription(row)">编辑详情</el-button>
-            <el-button type="info" link size="small" @click="handlePreview(row)">预览</el-button>
+            <el-button v-if="levelOf(row) === 1" type="success" link size="small" @click="handleAddSub(row)">新增子类</el-button>
+            <el-button v-if="levelOf(row) === 2" type="warning" link size="small" @click="handleEditDescription(row)">编辑详情</el-button>
+            <el-button v-if="levelOf(row) === 2" type="info" link size="small" @click="handlePreview(row)">预览</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -277,6 +276,12 @@ function findParent(id, list) {
     }
   }
   return null
+}
+
+// 计算分类层级：parent_id 为 0 是一级大类，其余为二级子类（本项目仅支持两级）
+function levelOf(row) {
+  const pid = row.parent_id ?? row.parentId ?? 0
+  return (pid === 0 || pid === '0') ? 1 : 2
 }
 
 // 前端树形过滤：节点自身或其子孙的 name 包含关键字时保留该节点（保留父级结构）
