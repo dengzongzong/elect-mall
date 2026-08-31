@@ -8,8 +8,9 @@ import CustomerService from './components/CustomerService.vue'
 </script>
 
 <style>
-/* 默认字体：微软雅黑（Windows 已内置，无需加载字体文件）；
-   附带系统字体栈兜底，Mac 回退苹方，英文回退系统无衬线体 */
+/* 全站字体：Roboto（Google Fonts）优先，负责拉丁字符与数字；
+   Roboto 不含中文字形，中文自动回退到微软雅黑（Win）/苹方（Mac）。
+   若 Google Fonts 加载失败，整体回退系统字体栈，不影响可读性。 */
 * {
   margin: 0;
   padding: 0;
@@ -18,7 +19,7 @@ import CustomerService from './components/CustomerService.vue'
 
 html, body {
   height: 100%;
-  font-family: 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Roboto', 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   color: #333;
   background-color: #f5f5f5;
 }
@@ -42,6 +43,6 @@ button, input, textarea, select {
   --theme-color-hover: #cc0010;
   --theme-color-light: #fff1f0;
   /* 覆盖 Element Plus 默认字体变量，使按钮/输入框等组件与正文统一 */
-  --el-font-family: 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --el-font-family: 'Roboto', 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 </style>
