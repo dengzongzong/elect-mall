@@ -119,6 +119,15 @@
             <el-button type="primary" link size="small" @click="addSpec">+ 添加规格参数</el-button>
           </div>
         </el-form-item>
+        <el-form-item label="详情">
+          <el-input v-model="form.description" type="textarea" :rows="4" placeholder="商品详情/副标题文案，展示在商城商品详情页" />
+        </el-form-item>
+        <el-form-item label="商品主图">
+          <el-input v-model="form.image" placeholder="图片URL，如 https://.../xxx.jpg" style="width: 100%" />
+          <div v-if="form.image" class="img-preview">
+            <img :src="form.image" alt="预览" @error="e => e.target.style.display = 'none'" />
+          </div>
+        </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
             <el-radio :value="1">上架</el-radio>
@@ -165,6 +174,8 @@ const form = ref({
   stock: 0,
   weight: null,
   specs: [],
+  description: '',
+  image: '',
   status: 1
 })
 
@@ -254,7 +265,7 @@ function handleImport() {
 
 function handleAdd() {
   dialogTitle.value = '新增商品'
-  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, tierPrices: [], stock: 0, weight: null, specs: [], status: 1 }
+  form.value = { id: null, name: '', categoryId: null, partNo: '', price: 0, tierPrices: [], stock: 0, weight: null, specs: [], description: '', image: '', status: 1 }
   dialogVisible.value = true
 }
 
@@ -271,6 +282,8 @@ function handleEdit(row) {
     stock: row.stock || 0,
     weight: row.weight || null,
     specs: Array.isArray(specs) ? specs : (specs && typeof specs === 'object' ? Object.entries(specs).map(([k, v]) => ({ key: k, value: v })) : []),
+    description: row.description || '',
+    image: row.image_url || '',
     status: row.status ?? 1
   }
   dialogVisible.value = true
@@ -419,5 +432,17 @@ onMounted(() => {
 
 .spec-sep {
   color: #606266;
+}
+
+.img-preview {
+  margin-top: 8px;
+}
+
+.img-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  object-fit: contain;
 }
 </style>
