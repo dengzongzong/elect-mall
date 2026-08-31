@@ -10,8 +10,8 @@ INSERT INTO carousel (title, image_url, link, color, sort, status, created_at, u
 
 -- ================= 首页区块：右侧广告位 (side_ad) =================
 INSERT INTO home_block (block_key, title, `desc`, tag, tag_bg, link, bg, icon, sort, status, created_at, updated_at, deleted) VALUES
-('side_ad', '限时特惠专场', '精选阻容感器件 低至8折', 'HOT', '#E60012', '', '#fff7f7', '', 1, 1, NOW(), NOW(), 0),
-('side_ad', '样品免费申请', '工程师专属 · 小批量快送', 'NEW', '#1677ff', '', '#f6fbff', '', 2, 1, NOW(), NOW(), 0);
+('side_ad', '限时特惠专场', '精选阻容感器件 低至8折', 'HOT', 'linear-gradient(135deg, #A8071A 0%, #E60012 100%)', '', '#fff1f0', '', 1, 1, NOW(), NOW(), 0),
+('side_ad', '样品免费申请', '工程师专属 · 小批量快送', 'NEW', 'linear-gradient(135deg, #0958D9 0%, #1677FF 100%)', '', '#e6f4ff', '', 2, 1, NOW(), NOW(), 0);
 
 -- ================= 首页区块：卖点文案 (feature) =================
 INSERT INTO home_block (block_key, title, `desc`, tag, tag_bg, link, bg, icon, sort, status, created_at, updated_at, deleted) VALUES

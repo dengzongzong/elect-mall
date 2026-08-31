@@ -419,7 +419,7 @@ CREATE TABLE `home_block` (
   `title` varchar(100) DEFAULT NULL COMMENT '标题',
   `desc` varchar(255) DEFAULT NULL COMMENT '描述',
   `tag` varchar(32) DEFAULT NULL COMMENT '角标',
-  `tag_bg` varchar(32) DEFAULT NULL COMMENT '角标颜色',
+  `tag_bg` varchar(255) DEFAULT NULL COMMENT '角标颜色（支持渐变 linear-gradient）',
   `link` varchar(255) DEFAULT NULL COMMENT '跳转链接',
   `bg` varchar(255) DEFAULT NULL COMMENT '背景渐变',
   `icon` varchar(32) DEFAULT NULL COMMENT '图标名',
