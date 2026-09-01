@@ -9,27 +9,11 @@
       <div class="login-card">
         <div class="login-tabs">
           <div class="tab-header">
-            <div class="tab-item" :class="{ active: activeTab === 'wechat' }" @click="activeTab = 'wechat'">微信扫码登录</div>
-            <div class="tab-item" :class="{ active: activeTab === 'phone' }" @click="activeTab = 'phone'">手机号登录</div>
+            <div class="tab-item" :class="{ active: activeTab === 'phone' }" @click="switchTab('phone')">手机号登录/注册</div>
+            <div class="tab-item" :class="{ active: activeTab === 'wechat' }" @click="switchTab('wechat')">微信登录</div>
           </div>
           <div class="tab-content">
-            <!-- 微信扫码登录 -->
-            <div v-show="activeTab === 'wechat'" class="wechat-login">
-              <div class="qr-code-placeholder">
-                <el-icon class="qr-icon"><ChatLineSquare /></el-icon>
-                <span class="qr-text">请使用微信扫码登录</span>
-                <div class="qr-box">
-                  <div class="qr-sim">
-                    <div class="qr-pattern">
-                      <div class="qr-block" v-for="i in 20" :key="i" :style="getRandomStyle()"></div>
-                    </div>
-                  </div>
-                </div>
-                <p class="qr-tip">扫码即表示同意 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a></p>
-              </div>
-            </div>
-
-            <!-- 手机号登录 -->
+            <!-- 手机号登录/注册（未注册自动注册） -->
             <div v-show="activeTab === 'phone'" class="phone-login">
               <el-form ref="formRef" :model="form" :rules="rules" label-position="top" size="large">
                 <el-form-item label="手机号" prop="phone">
@@ -53,13 +37,33 @@
                 </el-form-item>
                 <el-form-item>
                   <el-button type="danger" class="login-btn" :loading="loading" @click="handleLogin">
-                    登录
+                    登录 / 注册
                   </el-button>
                 </el-form-item>
               </el-form>
               <div class="login-footer-info">
-                <p>首次登录将自动创建账号</p>
+                <p class="auto-register">未注册的手机号验证后自动注册！</p>
                 <p>登录即表示同意 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a></p>
+              </div>
+            </div>
+
+            <!-- 微信登录 -->
+            <div v-show="activeTab === 'wechat'" class="wechat-login">
+              <div class="qr-code-placeholder">
+                <div class="qr-box">
+                  <div class="qr-sim">
+                    <div class="qr-pattern">
+                      <div class="qr-block" v-for="i in 20" :key="i" :style="getRandomStyle()"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="qr-tip">请使用微信扫一扫登录</p>
+                <el-button type="success" class="wx-login-btn" :loading="wxLoading" @click="handleWechatLogin">
+                  <el-icon class="wx-icon"><ChatLineSquare /></el-icon>
+                  微信一键登录
+                </el-button>
+                <p class="qr-tip">未注册的微信用户授权后自动创建账号</p>
+                <p class="qr-tip">扫码或点击即表示同意 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a></p>
               </div>
             </div>
           </div>
@@ -73,17 +77,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onUnmounted, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
 import { sendCode, phoneLogin, wechatLogin } from '../api/auth'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref(null)
 const activeTab = ref('phone')
 const loading = ref(false)
+const wxLoading = ref(false)
 const codeSending = ref(false)
 const countdown = ref(0)
 let timer = null
@@ -110,6 +116,16 @@ const rules = {
     { required: true, message: '请输入验证码', trigger: 'blur' },
     { min: 4, max: 6, message: '验证码为4-6位', trigger: 'blur' },
   ],
+}
+
+// 支持 ?returnUrl= 回跳（对齐参考页）
+function getReturnUrl() {
+  const r = route.query.returnUrl
+  return r && r.startsWith('/') ? r : '/'
+}
+
+function switchTab(tab) {
+  activeTab.value = tab
 }
 
 function getRandomStyle() {
@@ -166,7 +182,7 @@ async function handleLogin() {
           phone: form.phone,
         })
         ElMessage.success('登录成功')
-        router.push('/')
+        router.push(getReturnUrl())
       } else {
         ElMessage.error(res.message || '登录失败')
       }
@@ -177,6 +193,34 @@ async function handleLogin() {
     }
   })
 }
+
+// 微信登录：模拟授权 code 走后端 wechat-login（后端按 code 生成 openid 并自动注册）
+async function handleWechatLogin() {
+  wxLoading.value = true
+  try {
+    const code = 'mock_wx_code_' + Date.now()
+    const res = await wechatLogin(code)
+    if (res.success !== false) {
+      userStore.setToken(res.token)
+      userStore.setUserInfo(res.user || { nickname: '微信用户' })
+      ElMessage.success('登录成功')
+      router.push(getReturnUrl())
+    } else {
+      ElMessage.error(res.message || '微信登录失败')
+    }
+  } catch (e) {
+    // 错误已在拦截器中处理
+  } finally {
+    wxLoading.value = false
+  }
+}
+
+onMounted(() => {
+  // 若已在登录态，直接回跳
+  if (userStore.isLoggedIn) {
+    router.replace(getReturnUrl())
+  }
+})
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
@@ -264,66 +308,6 @@ onUnmounted(() => {
   padding: 32px;
 }
 
-/* 微信扫码 */
-.wechat-login {
-  text-align: center;
-}
-
-.qr-code-placeholder {
-  padding: 20px 0;
-}
-
-.qr-icon {
-  font-size: 40px;
-  color: #07c160;
-  margin-bottom: 12px;
-}
-
-.qr-text {
-  display: block;
-  font-size: 15px;
-  color: #333;
-  margin-bottom: 20px;
-}
-
-.qr-box {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.qr-sim {
-  width: 180px;
-  height: 180px;
-  background: #fff;
-  border: 2px solid #333;
-  border-radius: 8px;
-  padding: 8px;
-  position: relative;
-}
-
-.qr-pattern {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  background: #fff;
-}
-
-.qr-block {
-  position: absolute;
-  border-radius: 1px;
-}
-
-.qr-tip {
-  font-size: 12px;
-  color: #999;
-}
-
-.qr-tip a {
-  color: var(--theme-color);
-  text-decoration: none;
-}
-
 /* 手机号登录 */
 .phone-login {
   max-width: 360px;
@@ -365,9 +349,75 @@ onUnmounted(() => {
   line-height: 22px;
 }
 
+.login-footer-info .auto-register {
+  color: var(--theme-color);
+  font-weight: 600;
+}
+
 .login-footer-info a {
   color: var(--theme-color);
   text-decoration: none;
+}
+
+/* 微信登录 */
+.wechat-login {
+  text-align: center;
+}
+
+.qr-code-placeholder {
+  padding: 12px 0;
+}
+
+.qr-box {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.qr-sim {
+  width: 180px;
+  height: 180px;
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 8px;
+  position: relative;
+}
+
+.qr-pattern {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #fff;
+}
+
+.qr-block {
+  position: absolute;
+  border-radius: 1px;
+}
+
+.qr-tip {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.qr-tip a {
+  color: var(--theme-color);
+  text-decoration: none;
+}
+
+.wx-login-btn {
+  width: 100%;
+  height: 44px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.wx-icon {
+  margin-right: 6px;
 }
 
 .login-footer {
