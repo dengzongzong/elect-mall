@@ -9,10 +9,18 @@
         </el-breadcrumb>
       </div>
 
+      <!-- 顶部说明 -->
+      <div class="page-hero">
+        <div class="hero-inner">
+          <h2 class="hero-title">授权代理品牌列表</h2>
+          <p class="hero-sub">TDK、国巨(YAGEO)、基美(KEMET)、村田(Murata) 等全球领先原厂授权代理</p>
+        </div>
+      </div>
+
       <!-- 精选品牌 -->
       <div class="featured-section">
         <div class="section-header">
-          <h3>品牌精选</h3>
+          <h3>精选品牌</h3>
         </div>
         <div class="featured-grid">
           <div
@@ -22,22 +30,61 @@
             @click="goToBrand(brand)"
           >
             <div class="featured-logo">
-              <img :src="brand.logo" :alt="brand.name" @error="onLogoError($event, brand)" />
+              <img :src="brand.logo" :alt="brand.name" @error="onLogoError($event)" />
             </div>
             <span class="featured-name">{{ brand.name }}</span>
           </div>
         </div>
       </div>
 
+      <!-- 筛选工具栏 -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <span class="toolbar-label">按分类选品牌：</span>
+          <el-select v-model="selectedCategory" placeholder="全部分类" clearable size="default" class="cat-select">
+            <el-option label="全部分类" value="" />
+            <el-option
+              v-for="cat in categoryOptions"
+              :key="cat.id"
+              :label="cat.name"
+              :value="cat.name"
+            />
+          </el-select>
+        </div>
+        <div class="toolbar-right">
+          <el-input
+            v-model="keyword"
+            placeholder="搜索品牌名称"
+            clearable
+            class="search-input"
+            @keyup.enter="onSearch"
+            @clear="onSearch"
+          >
+            <template #append>
+              <el-button @click="onSearch">
+                <el-icon><Search /></el-icon>
+                搜索
+              </el-button>
+            </template>
+          </el-input>
+        </div>
+      </div>
+
       <!-- 字母索引 -->
-      <div class="letter-index">
-        <span class="letter-item" :class="{ active: activeLetter === '' }" @click="activeLetter = ''">全部</span>
-        <span class="letter-item" v-for="l in letters" :key="l" :class="{ active: activeLetter === l }" @click="activeLetter = l">{{ l }}</span>
+      <div class="letter-index" v-if="!keyword && !selectedCategory">
+        <span class="letter-all" :class="{ active: activeLetter === '' }" @click="activeLetter = ''">全部</span>
+        <span
+          class="letter-item"
+          v-for="l in letters"
+          :key="l"
+          :class="{ active: activeLetter === l, disabled: !availableLetters.includes(l) }"
+          @click="availableLetters.includes(l) && (activeLetter = l)"
+        >{{ l }}</span>
       </div>
 
       <!-- 品牌列表 -->
       <div class="brand-list-section">
-        <div class="brand-group" v-for="group in filteredBrands" :key="group.letter">
+        <div class="brand-group" v-for="group in filteredBrands" :key="group.letter" :ref="el => setGroupRef(el, group.letter)">
           <div class="group-header">
             <span class="group-letter">{{ group.letter }}</span>
             <span class="group-count">{{ group.items.length }}个品牌</span>
@@ -50,15 +97,18 @@
               @click="goToBrand(brand)"
             >
               <div class="brand-logo">
-                <img :src="brand.logo" :alt="brand.name" @error="onLogoError($event, brand)" />
+                <img :src="brand.logo" :alt="brand.name" @error="onLogoError($event)" />
               </div>
               <span class="brand-name">{{ brand.name }}</span>
+              <span class="brand-count" v-if="brand.product_count > 0">{{ brand.product_count }} 件商品</span>
+              <span class="brand-count muted" v-else>敬请期待</span>
+              <span class="brand-tag" v-if="brand.is_cooperate === 1">授权代理品牌</span>
             </div>
           </div>
         </div>
         <div v-if="filteredBrands.length === 0" class="empty-state">
           <el-icon><FolderDelete /></el-icon>
-          <p>暂无该字母开头的品牌</p>
+          <p>没有找到匹配的品牌</p>
         </div>
       </div>
     </div>
@@ -67,20 +117,31 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import MainHeader from '../components/MainHeader.vue'
 import MainFooter from '../components/MainFooter.vue'
-import { getBrands } from '../api/product'
+import { getBrands, getCategoryTree } from '../api/product'
 
 const router = useRouter()
-const activeLetter = ref('')
 const brands = ref([])
-const loading = ref(true)
+const categories = ref([])
+const activeLetter = ref('')
+const keyword = ref('')
+const selectedCategory = ref('')
+const groupRefs = {}
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
+function setGroupRef(el, letter) {
+  if (el) groupRefs[letter] = el
+}
+
 const featuredBrands = computed(() => brands.value.slice(0, 35))
+
+const categoryOptions = computed(() =>
+  categories.value.map(c => ({ id: c.id, name: c.name }))
+)
 
 const brandGroups = computed(() => {
   const groups = {}
@@ -104,31 +165,81 @@ const brandGroups = computed(() => {
   return sorted.map(k => groups[k])
 })
 
+const availableLetters = computed(() => brandGroups.value.map(g => g.letter))
+
+function matchFilter(brand) {
+  if (keyword.value) {
+    const kw = keyword.value.toLowerCase()
+    const hay = (brand.name + ' ' + (brand.description || '')).toLowerCase()
+    if (!hay.includes(kw)) return false
+  }
+  if (selectedCategory.value) {
+    const cat = selectedCategory.value
+    const hay = (brand.name + ' ' + (brand.description || '')).toLowerCase()
+    if (!hay.includes(cat.toLowerCase())) return false
+  }
+  return true
+}
+
 const filteredBrands = computed(() => {
-  if (!activeLetter.value) return brandGroups.value
-  return brandGroups.value.filter(g => g.letter === activeLetter.value)
+  let groups = brandGroups.value
+
+  if (keyword.value || selectedCategory.value) {
+    return groups
+      .map(g => ({ ...g, items: g.items.filter(matchFilter) }))
+      .filter(g => g.items.length > 0)
+  }
+
+  if (!activeLetter.value) return groups
+  return groups.filter(g => g.letter === activeLetter.value)
 })
+
+function onSearch() {
+  activeLetter.value = ''
+  nextTick(() => {
+    const first = filteredBrands.value[0]
+    if (first && groupRefs[first.letter]) {
+      groupRefs[first.letter].scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  })
+}
 
 function goToBrand(brand) {
   router.push(`/brand/${brand.id}`)
 }
 
-function onLogoError(event, brand) {
+function onLogoError(event) {
   event.target.style.display = 'none'
-  const fallback = event.target.parentElement.querySelector('.logo-fallback')
-  if (fallback) {
-    fallback.style.display = 'flex'
+  const parent = event.target.parentElement
+  if (parent && !parent.querySelector('.logo-text')) {
+    const span = document.createElement('span')
+    span.className = 'logo-text'
+    span.textContent = 'LOGO'
+    parent.appendChild(span)
   }
 }
 
-onMounted(async () => {
+    onMounted(async () => {
   try {
-    const res = await getBrands()
-    brands.value = res.data || res || []
+    const [brandRes, catRes] = await Promise.all([
+      getBrands(),
+      getCategoryTree().catch(() => null)
+    ])
+    brands.value = brandRes.data || brandRes || []
+    if (catRes) {
+      const cats = catRes.data || catRes || []
+      // 扁平化全部类目（一级+二级），作为分类筛选项
+      const flat = []
+      cats.forEach(top => {
+        flat.push({ id: top.id, name: top.name })
+        if (top.children && top.children.length) {
+          top.children.forEach(sub => flat.push({ id: sub.id, name: sub.name }))
+        }
+      })
+      categories.value = flat
+    }
   } catch (e) {
     console.error('获取品牌列表失败', e)
-  } finally {
-    loading.value = false
   }
 })
 </script>
@@ -147,6 +258,26 @@ onMounted(async () => {
 
 .breadcrumb {
   padding: 16px 0;
+}
+
+/* 顶部说明 */
+.page-hero {
+  background: linear-gradient(135deg, #A8071A 0%, #E60012 100%);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 22px 28px;
+}
+
+.hero-title {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.hero-sub {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
 }
 
 /* 精选品牌 */
@@ -211,6 +342,38 @@ onMounted(async () => {
   line-height: 1.4;
 }
 
+/* 筛选工具栏 */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar-label {
+  font-size: 13px;
+  color: #666;
+}
+
+.cat-select {
+  width: 200px;
+}
+
+.search-input {
+  width: 320px;
+}
+
 /* 字母索引 */
 .letter-index {
   display: flex;
@@ -220,6 +383,18 @@ onMounted(async () => {
   background: #fff;
   border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.letter-all {
+  height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .letter-item {
@@ -235,7 +410,14 @@ onMounted(async () => {
   transition: all 0.2s;
 }
 
-.letter-item:hover,
+.letter-item.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.letter-all:hover,
+.letter-item:hover:not(.disabled),
+.letter-all.active,
 .letter-item.active {
   background: var(--theme-color);
   color: #fff;
@@ -251,6 +433,7 @@ onMounted(async () => {
 
 .brand-group {
   margin-bottom: 24px;
+  scroll-margin-top: 80px;
 }
 
 .brand-group:last-child {
@@ -294,7 +477,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 16px 8px;
   border: 1px solid #f0f0f0;
   border-radius: 8px;
@@ -322,11 +505,37 @@ onMounted(async () => {
   object-fit: contain;
 }
 
+.logo-text {
+  font-size: 12px;
+  color: #bbb;
+  letter-spacing: 1px;
+}
+
 .brand-name {
   font-size: 12px;
   color: #555;
   text-align: center;
   line-height: 1.3;
+}
+
+.brand-count {
+  font-size: 11px;
+  color: var(--theme-color);
+  font-weight: 600;
+}
+
+.brand-count.muted {
+  color: #bbb;
+  font-weight: 400;
+}
+
+.brand-tag {
+  font-size: 10px;
+  color: #fff;
+  background: #e6a23c;
+  padding: 1px 6px;
+  border-radius: 3px;
+  line-height: 1.4;
 }
 
 .empty-state {

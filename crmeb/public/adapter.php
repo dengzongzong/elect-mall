@@ -988,10 +988,13 @@ $routes = [
         $params = getQuery();
         $keyword = trim($params['keyword'] ?? '');
         $db = getDB();
-        $where = "WHERE deleted = 0 AND status = 1";
+        $where = "WHERE b.deleted = 0 AND b.status = 1";
         $bind = [];
-        if ($keyword) { $where .= " AND name LIKE ?"; $bind[] = "%$keyword%"; }
-        $stmt = $db->prepare("SELECT * FROM brand $where ORDER BY sort ASC");
+        if ($keyword) { $where .= " AND b.name LIKE ?"; $bind[] = "%$keyword%"; }
+        $sql = "SELECT b.*,
+                       (SELECT COUNT(*) FROM product p WHERE p.brand_id = b.id AND p.deleted = 0) AS product_count
+                FROM brand b $where ORDER BY b.sort ASC";
+        $stmt = $db->prepare($sql);
         $stmt->execute($bind);
         success($stmt->fetchAll(PDO::FETCH_ASSOC));
     },
