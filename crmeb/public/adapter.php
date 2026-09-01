@@ -996,7 +996,23 @@ $routes = [
                 FROM brand b $where ORDER BY b.sort ASC";
         $stmt = $db->prepare($sql);
         $stmt->execute($bind);
-        success($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // 字母分组：优先取英文名首字母（括号内或连续英文），否则归为 '#'
+        foreach ($rows as &$row) {
+            $name = $row['name'] ?? '';
+            $letter = '#';
+            if (preg_match('/\(([A-Za-z][A-Za-z0-9 .&\-]*)\)/', $name, $m)) {
+                $letter = strtoupper($m[1][0]);
+            } elseif (preg_match('/[A-Za-z]/', $name, $m)) {
+                $letter = strtoupper($name[$m[0][1] ?? 0] ?? $name[0]);
+                // 取第一个英文字母
+                if (preg_match('/([A-Za-z])/', $name, $mm)) { $letter = strtoupper($mm[1]); }
+            }
+            if (!preg_match('/[A-Z]/', $letter)) { $letter = '#'; }
+            $row['letter'] = $letter;
+        }
+        unset($row);
+        success($rows);
     },
     'GET brand/{brandId}/products' => function($brandId) {
         $params = getQuery();

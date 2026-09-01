@@ -148,8 +148,12 @@ const brandGroups = computed(() => {
   const list = brands.value
 
   for (const brand of list) {
-    const firstChar = (brand.name || '')[0].toUpperCase()
-    const letter = /[A-Z]/.test(firstChar) ? firstChar : '#'
+    // 优先使用后端返回的 letter 字段（英文名首字母），否则按名称首字符兜底
+    let letter = (brand.letter && /^[A-Z#]$/.test(brand.letter)) ? brand.letter : null
+    if (!letter) {
+      const firstChar = (brand.name || '')[0].toUpperCase()
+      letter = /[A-Z]/.test(firstChar) ? firstChar : '#'
+    }
     if (!groups[letter]) {
       groups[letter] = { letter, items: [] }
     }
