@@ -297,6 +297,8 @@ CREATE TABLE `partner_apply` (
   `user_id` bigint DEFAULT NULL COMMENT '用户ID',
   `company_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '公司名称',
   `category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '合作品类',
+  `brand` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '商品品牌',
+  `type` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '类别：原厂/代理商',
   `contact` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系人',
   `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '联系电话',
   `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',

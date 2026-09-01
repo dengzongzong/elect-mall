@@ -1772,8 +1772,16 @@ $routes = [
     'POST partner/apply' => function() {
         $data = getInput();
         $db = getDB();
-        $stmt = $db->prepare("INSERT INTO partner_apply (company_name, contact_name, phone, email, description, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-        $stmt->execute([$data['companyName'] ?? $data['company_name'] ?? '', $data['contactName'] ?? $data['contact_name'] ?? '', $data['phone'] ?? '', $data['email'] ?? '', $data['description'] ?? '']);
+        $stmt = $db->prepare("INSERT INTO partner_apply (company_name, category, brand, type, contact, phone, remark, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())");
+        $stmt->execute([
+            $data['companyName'] ?? $data['company_name'] ?? '',
+            $data['category'] ?? $data['category_name'] ?? '',
+            $data['brand'] ?? $data['brandName'] ?? '',
+            $data['type'] ?? '',
+            $data['contactName'] ?? $data['contact_name'] ?? $data['contact'] ?? '',
+            $data['phone'] ?? '',
+            $data['description'] ?? $data['remark'] ?? $data['message'] ?? ''
+        ]);
         success(null, '申请成功');
     },
 

@@ -64,9 +64,18 @@
       <div class="section" ref="formSection">
         <h2 class="section-title">合作申请</h2>
         <div class="form-card">
-          <el-form :model="applyForm" label-width="100px" size="large">
+          <el-form :model="applyForm" label-width="110px" size="large">
             <el-form-item label="公司名称" required>
               <el-input v-model="applyForm.companyName" placeholder="请输入公司全称" />
+            </el-form-item>
+            <el-form-item label="商品品牌" required>
+              <el-input v-model="applyForm.brand" placeholder="如：TDK、村田、国巨等" />
+            </el-form-item>
+            <el-form-item label="类别" required>
+              <el-radio-group v-model="applyForm.type">
+                <el-radio value="原厂">原厂</el-radio>
+                <el-radio value="代理商">代理商</el-radio>
+              </el-radio-group>
             </el-form-item>
             <el-form-item label="主营品类" required>
               <el-input v-model="applyForm.category" placeholder="如：电容电阻、MCU、传感器等" />
@@ -138,6 +147,8 @@ const contacts = [
 
 const applyForm = reactive({
   companyName: '',
+  brand: '',
+  type: '原厂',
   category: '',
   contact: '',
   phone: '',
@@ -152,14 +163,16 @@ function scrollToForm() {
 }
 
 async function handleSubmit() {
-  if (!applyForm.companyName || !applyForm.category || !applyForm.contact || !applyForm.phone) {
-    ElMessage.warning('请填写完整信息（公司名称、主营品类、联系人、联系电话为必填）')
+  if (!applyForm.companyName || !applyForm.brand || !applyForm.type || !applyForm.category || !applyForm.contact || !applyForm.phone) {
+    ElMessage.warning('请填写完整信息（公司名称、商品品牌、类别、主营品类、联系人、联系电话为必填）')
     return
   }
   submitting.value = true
   try {
     const res = await submitPartnerApply({
       companyName: applyForm.companyName,
+      brand: applyForm.brand,
+      type: applyForm.type,
       category: applyForm.category,
       contact: applyForm.contact,
       phone: applyForm.phone,
@@ -181,6 +194,8 @@ async function handleSubmit() {
 
 function resetForm() {
   applyForm.companyName = ''
+  applyForm.brand = ''
+  applyForm.type = '原厂'
   applyForm.category = ''
   applyForm.contact = ''
   applyForm.phone = ''
