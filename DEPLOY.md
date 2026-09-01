@@ -1,5 +1,13 @@
 # 生产环境部署指南
 
+> ⚠️ **文档与真实环境不一致提示**：本文件描述的是「通用/理想」部署方案（Nginx + php-fpm + GitHub Actions）。
+> **本项目实际生产环境**采用更轻量的架构：腾讯云 CentOS 7 上由 systemd 守护两个服务——
+> `elect-mall-backend`（`php -S 127.0.0.1:8000` 跑 `crmeb/public/adapter.php`）与
+> `elect-mall-frontend`（零依赖 Node `deploy/prod-server.cjs` 在 8080/8081 提供静态文件并反向代理），
+> 部署目录为 `/root/elect-mall`，数据库 `root/123456`，且服务器无法访问 GitHub，
+> 故走「本地构建 → scp 上传 → 覆盖 → systemd 重启」流程。
+> **真实部署请直接用 `deploy/deploy-remote.sh`**（脚本头部有完整说明），不要照抄下面的 Nginx / Actions 步骤。
+
 ## 系统架构
 
 ```
