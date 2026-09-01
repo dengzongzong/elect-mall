@@ -400,7 +400,7 @@ $routes = [
         $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product p $where");
         $countStmt->execute($bind);
         $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id $where ORDER BY p.id DESC LIMIT ? OFFSET ?");
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, c.name as l2_name, cParent.name as l1_name FROM product p LEFT JOIN category c ON p.category_id = c.id LEFT JOIN category cParent ON c.parent_id = cParent.id $where ORDER BY p.id DESC LIMIT ? OFFSET ?");
         $paramIdx = 1;
         foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
         $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
@@ -931,7 +931,7 @@ $routes = [
         $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product p $where");
         $countStmt->execute($bind);
         $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id $where ORDER BY p.id DESC LIMIT ? OFFSET ?");
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, c.name as l2_name, cParent.name as l1_name FROM product p LEFT JOIN category c ON p.category_id = c.id LEFT JOIN category cParent ON c.parent_id = cParent.id $where ORDER BY p.id DESC LIMIT ? OFFSET ?");
         $paramIdx = 1;
         foreach ($bind as $v) { $stmt->bindValue($paramIdx++, $v); }
         $stmt->bindValue($paramIdx++, $size, PDO::PARAM_INT);
@@ -947,7 +947,7 @@ $routes = [
     },
     'GET product/recommend' => function() {
         $db = getDB();
-        $stmt = $db->query("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id WHERE p.status = 1 ORDER BY p.id DESC LIMIT 12");
+        $stmt = $db->query("SELECT p.*, c.name as category_name, c.name as l2_name, cParent.name as l1_name FROM product p LEFT JOIN category c ON p.category_id = c.id LEFT JOIN category cParent ON c.parent_id = cParent.id WHERE p.status = 1 ORDER BY p.id DESC LIMIT 12");
         $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($records as &$r) {
             $r['tier_prices'] = json_decode($r['tier_prices'] ?? 'null', true);
@@ -958,7 +958,7 @@ $routes = [
     },
     'GET product/{id}' => function($id) {
         $db = getDB();
-        $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id WHERE p.id = ?");
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, c.name as l2_name, cParent.name as l1_name FROM product p LEFT JOIN category c ON p.category_id = c.id LEFT JOIN category cParent ON c.parent_id = cParent.id WHERE p.id = ?");
         $stmt->execute([$id]);
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$product) error('商品不存在', 404);
@@ -975,9 +975,10 @@ $routes = [
         if (empty($ids)) error('请至少选择一个商品');
         $db = getDB();
         $ph = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $db->prepare("SELECT p.*, c.name as category_name, b.name as brand_name
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, c.name as l2_name, cParent.name as l1_name, b.name as brand_name
                               FROM product p
                               LEFT JOIN category c ON p.category_id = c.id
+                              LEFT JOIN category cParent ON c.parent_id = cParent.id
                               LEFT JOIN brand b ON p.brand_id = b.id
                               WHERE p.id IN ($ph) AND (p.deleted = 0 OR p.deleted IS NULL)");
         $stmt->execute($ids);
@@ -1001,7 +1002,7 @@ $routes = [
         $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product WHERE brand_id = ?");
         $countStmt->execute([$brandId]);
         $total = (int)$countStmt->fetch(PDO::FETCH_ASSOC)['total'];
-        $stmt = $db->prepare("SELECT p.*, c.name as category_name FROM product p LEFT JOIN category c ON p.category_id = c.id WHERE p.brand_id = ? ORDER BY p.id DESC LIMIT ? OFFSET ?");
+        $stmt = $db->prepare("SELECT p.*, c.name as category_name, c.name as l2_name, cParent.name as l1_name FROM product p LEFT JOIN category c ON p.category_id = c.id LEFT JOIN category cParent ON c.parent_id = cParent.id WHERE p.brand_id = ? ORDER BY p.id DESC LIMIT ? OFFSET ?");
         $stmt->bindValue(1, $brandId, PDO::PARAM_INT);
         $stmt->bindValue(2, $size, PDO::PARAM_INT);
         $stmt->bindValue(3, $offset, PDO::PARAM_INT);
