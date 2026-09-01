@@ -43,10 +43,10 @@
         <el-table-column prop="id" label="商品编号" width="120" />
         <el-table-column prop="name" label="商品名称" min-width="200" />
         <el-table-column prop="partNo" label="料号" width="150" />
-        <el-table-column prop="l1_name" label="一级分类" min-width="130">
+        <el-table-column prop="l1_name" label="一级大类" min-width="130">
           <template #default="{ row }">{{ row.l1_name || '-' }}</template>
         </el-table-column>
-        <el-table-column prop="l2_name" label="二级分类" min-width="130">
+        <el-table-column prop="l2_name" label="二级子类" min-width="130">
           <template #default="{ row }">{{ row.l2_name || '-' }}</template>
         </el-table-column>
         <el-table-column prop="price" label="价格" width="120">

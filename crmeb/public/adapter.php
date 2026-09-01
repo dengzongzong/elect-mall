@@ -394,7 +394,7 @@ $routes = [
         $db = getDB();
         $where = "WHERE 1=1";
         $bind = [];
-        if ($categoryId) { $where .= " AND p.category_id = ?"; $bind[] = $categoryId; }
+        if ($categoryId) { $where .= " AND (p.category_id = ? OR p.category_id IN (SELECT id FROM category WHERE parent_id = ?))"; $bind[] = $categoryId; $bind[] = $categoryId; }
         if ($keyword) { $where .= " AND (p.name LIKE ? OR p.part_no LIKE ?)"; $bind[] = "%$keyword%"; $bind[] = "%$keyword%"; }
         if ($status !== null && $status !== '') { $where .= " AND p.status = ?"; $bind[] = $status; }
         $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product p $where");
@@ -925,7 +925,7 @@ $routes = [
         $db = getDB();
         $where = "WHERE 1=1";
         $bind = [];
-        if ($categoryId) { $where .= " AND p.category_id = ?"; $bind[] = $categoryId; }
+        if ($categoryId) { $where .= " AND (p.category_id = ? OR p.category_id IN (SELECT id FROM category WHERE parent_id = ?))"; $bind[] = $categoryId; $bind[] = $categoryId; }
         if ($keyword) { $where .= " AND (p.name LIKE ? OR p.part_no LIKE ?)"; $bind[] = "%$keyword%"; $bind[] = "%$keyword%"; }
         $total = 0;
         $countStmt = $db->prepare("SELECT COUNT(*) as total FROM product p $where");
