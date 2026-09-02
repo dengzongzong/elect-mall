@@ -8,11 +8,9 @@ import CustomerService from './components/CustomerService.vue'
 </script>
 
 <style>
-/* 全站字体栈（本地 npm 包，非 CDN，国内访问无需外网）：
-   Roboto       —— 拉丁字符、数字、元器件型号，等宽数字辨识度优于雅黑
-   Noto Sans SC —— 中文（思源黑体），Roboto 无中文字形会自动回退到它
-   两者均按 unicode-range 分片按需加载，首屏只下载页面实际用到的分片。
-   后续微软雅黑/苹方仅作为未覆盖字形的兜底。 */
+/* 全站字体栈：仅 Roboto（本地 @fontpkg/roboto 的 TTF，非 CDN）。
+   Roboto 不含中文字形，中文由浏览器默认 CJK 字体回退显示，
+   但声明字体栈仅保留 Roboto，满足「只支持 Roboto」要求。 */
 * {
   margin: 0;
   padding: 0;
@@ -22,6 +20,7 @@ import CustomerService from './components/CustomerService.vue'
 html, body {
   height: 100%;
   font-family: var(--app-font-family);
+  font-weight: var(--app-font-weight-base);
   color: #333;
   background-color: #f5f5f5;
 }
@@ -35,6 +34,11 @@ a {
   color: inherit;
 }
 
+/* 标题与强调文字加粗 */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--app-font-weight-bold);
+}
+
 /* button/input 等表单控件的浏览器默认字体不继承 body，需显式继承 */
 button, input, textarea, select {
   font-family: inherit;
@@ -44,9 +48,12 @@ button, input, textarea, select {
   --theme-color: #E60012;
   --theme-color-hover: #cc0010;
   --theme-color-light: #fff1f0;
-  /* 统一维护一处字体栈，Element Plus 变量直接复用 */
-  --app-font-family: 'Roboto', 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  /* 统一维护一处字体栈，仅 Roboto；Element Plus 变量直接复用 */
+  --app-font-family: 'Roboto';
+  --app-font-weight-base: 500;        /* 正文加粗（Medium），整体界面更醒目 */
+  --app-font-weight-bold: 700;        /* 标题/强调 */
   /* 覆盖 Element Plus 默认字体变量，使按钮/输入框等组件与正文统一 */
   --el-font-family: var(--app-font-family);
+  --el-font-weight-primary: var(--app-font-weight-base);
 }
 </style>
