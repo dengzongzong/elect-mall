@@ -19,7 +19,7 @@
 :root {
   /* 统一维护一处字体栈，仅 Roboto；Element Plus 变量直接复用 */
   --app-font-family: 'Roboto';
-  --app-font-weight-base: 500;        /* 正文加粗（Medium），整体界面更醒目 */
+  --app-font-weight-base: 700;        /* 全站统一粗体 Bold */
   --app-font-weight-bold: 700;        /* 标题/强调 */
   /* 覆盖 Element Plus 默认字体变量，使按钮/输入框等组件与正文统一 */
   --el-font-family: var(--app-font-family);
