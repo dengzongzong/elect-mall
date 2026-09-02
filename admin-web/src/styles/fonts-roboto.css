@@ -1,0 +1,28 @@
+/* Roboto 本地自托管（拉丁字符/数字/元器件型号），字体文件取自 @fontpkg/roboto（原始 TTF）。
+   说明：@fontpkg/roboto 仅提供 .ttf，无 woff2、无 unicode-range 分片，故按整字重加载；
+   中文仍由 fonts-noto-sc.css（思源黑体）按分片覆盖。
+   项目实际使用的字重 400/500/600/700 按 CSS 字重匹配规则映射到 400/500/700（500→400、600→700）。 */
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../node_modules/@fontpkg/roboto/Roboto-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../node_modules/@fontpkg/roboto/Roboto-Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../node_modules/@fontpkg/roboto/Roboto-Bold.ttf') format('truetype');
+}

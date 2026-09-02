@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@fontpkg/roboto": "^3.9.1",
     "@fontsource/noto-sans-sc": "^5.3.0",
-    "@fontsource/roboto": "^5.3.0",
     "axios": "^1.6.7",
     "element-plus": "^2.6.1",
     "pinia": "^2.1.7",
