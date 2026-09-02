@@ -87,9 +87,21 @@ echo "    产物大小：$(du -h "$TARBALL" | cut -f1)"
 log "上传到 ${SERVER_USER}@${SERVER_HOST}:/tmp/"
 scp "${SSH_OPTS[@]}" "$TARBALL" "${SERVER_USER}@${SERVER_HOST}:${REMOTE_TARBALL}" || die "上传失败"
 
-log "在服务器解压覆盖到 $REMOTE_DIR"
+# 解压采用「先解到临时目录、再原子替换 dist」：
+# 旧做法是直接 `tar xzf` 覆盖，但 tar 只增不删，会导致 dist/assets 里堆积历次构建的旧 hash 文件
+# （index-*.css/js 等死文件）。这里先删旧 dist、用临时目录解包后的新 dist 整体替换，
+# 既杜绝旧 hash 残留，又不会像「按文件名批量删」那样误删运行时懒加载 chunk。
+log "在服务器解压覆盖到 $REMOTE_DIR（原子替换 dist，避免旧 hash 残留）"
 ssh "${SSH_OPTS[@]}" "${SERVER_USER}@${SERVER_HOST}" \
-  "cd '$REMOTE_DIR' && tar xzf '$REMOTE_TARBALL' && rm -f '$REMOTE_TARBALL'" || die "解压覆盖失败"
+  "set -e; cd '$REMOTE_DIR'; rm -rf .deploy_tmp; mkdir -p .deploy_tmp; \
+   tar xzf '$REMOTE_TARBALL' -C .deploy_tmp; \
+   rm -rf mall-web/dist admin-web/dist; \
+   mv .deploy_tmp/mall-web/dist mall-web/dist; \
+   mv .deploy_tmp/admin-web/dist admin-web/dist; \
+   cp -f .deploy_tmp/crmeb/public/adapter.php crmeb/public/adapter.php; \
+   cp -f .deploy_tmp/deploy/prod-server.cjs deploy/prod-server.cjs; \
+   cp -f .deploy_tmp/mall_db_schema.sql .deploy_tmp/install.sql . 2>/dev/null || true; \
+   rm -rf .deploy_tmp; rm -f '$REMOTE_TARBALL'" || die "解压覆盖失败"
 
 # ---------- 4. 重启 systemd 服务 ----------
 log "重启 systemd 服务"
