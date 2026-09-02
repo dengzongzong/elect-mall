@@ -31,7 +31,9 @@ SERVER_HOST="${SERVER_HOST:-134.175.246.242}"
 SERVER_USER="${SERVER_USER:-root}"
 SERVER_PORT="${SERVER_PORT:-22}"
 REMOTE_DIR="${REMOTE_DIR:-/root/elect-mall}"
-SSH_OPTS=(-o StrictHostKeyChecking=no -o ConnectTimeout=10 -p "$SERVER_PORT")
+# 注意：ssh 用 -p 指定端口，但 scp 的端口参数是大写 -P；
+# 为让同一组参数在 ssh 与 scp 下都正确，统一用 -o Port= （两者都识别）。
+SSH_OPTS=(-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o Port="$SERVER_PORT")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"   # 代码根目录

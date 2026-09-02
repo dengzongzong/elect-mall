@@ -8,9 +8,11 @@ import CustomerService from './components/CustomerService.vue'
 </script>
 
 <style>
-/* 全站字体：Roboto（Google Fonts）优先，负责拉丁字符与数字；
-   Roboto 不含中文字形，中文自动回退到微软雅黑（Win）/苹方（Mac）。
-   若 Google Fonts 加载失败，整体回退系统字体栈，不影响可读性。 */
+/* 全站字体栈（本地 npm 包，非 CDN，国内访问无需外网）：
+   Roboto       —— 拉丁字符、数字、元器件型号，等宽数字辨识度优于雅黑
+   Noto Sans SC —— 中文（思源黑体），Roboto 无中文字形会自动回退到它
+   两者均按 unicode-range 分片按需加载，首屏只下载页面实际用到的分片。
+   后续微软雅黑/苹方仅作为未覆盖字形的兜底。 */
 * {
   margin: 0;
   padding: 0;
@@ -19,7 +21,7 @@ import CustomerService from './components/CustomerService.vue'
 
 html, body {
   height: 100%;
-  font-family: 'Roboto', 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--app-font-family);
   color: #333;
   background-color: #f5f5f5;
 }
@@ -42,7 +44,9 @@ button, input, textarea, select {
   --theme-color: #E60012;
   --theme-color-hover: #cc0010;
   --theme-color-light: #fff1f0;
+  /* 统一维护一处字体栈，Element Plus 变量直接复用 */
+  --app-font-family: 'Roboto', 'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   /* 覆盖 Element Plus 默认字体变量，使按钮/输入框等组件与正文统一 */
-  --el-font-family: 'Roboto', 'Microsoft YaHei', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --el-font-family: var(--app-font-family);
 }
 </style>
